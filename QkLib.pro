@@ -6,7 +6,7 @@
 
 QT       -= gui
 
-TARGET = QkLib
+TARGET = Qk
 TEMPLATE = lib
 
 DEFINES += QKLIB_LIBRARY
@@ -15,7 +15,9 @@ SOURCES += qk.cpp
 
 HEADERS += qk.h\
         qklib_global.h \
-    qk_defs.h
+    qk_defs.h \
+    qk_comm.h \
+    qk_utils.h
 
 unix:!symbian {
     maemo5 {
