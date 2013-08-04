@@ -31,6 +31,21 @@ QkCore::~QkCore()
 
 }
 
+QkGateway* QkCore::gateway()
+{
+    return m_gateway;
+}
+
+QkNetwork* QkCore::network()
+{
+    return m_network;
+}
+
+QList<QkNode*> QkCore::nodes()
+{
+    return m_nodes;
+}
+
 void QkCore::search()
 {
     Qk::Packet p;
@@ -60,6 +75,7 @@ void QkCore::stop()
 
 void QkCore::comm_sendPacket(Packet *p)
 {
+    qDebug() << "QkCore::comm_sendPacket()";
     QByteArray frame;
 
     if(p->address != 0) {
@@ -75,7 +91,12 @@ void QkCore::comm_sendPacket(Packet *p)
     frame.append(p->code);
     frame.append(p->data);
 
-    emit comm_sendBytes((quint8*)frame.data(), frame.count());
+    emit comm_sendBytes(frame);
+}
+
+void QkCore::comm_processBytes(QByteArray frame)
+{
+    comm_processBytes((quint8*)frame.data(), frame.count());
 }
 
 void QkCore::comm_processBytes(quint8 *buf, int count)

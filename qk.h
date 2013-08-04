@@ -253,10 +253,10 @@ public:
     static QString codeFriendlyName(int code);
 
     /**** API ***************************************/
-    QkNode* getNode(int address = 0);
-    QList<QkNode*> getNodes();
-    QkNetwork* getNetwork();
-    QkGateway* getGateway();
+    QkNode* node(int address = 0);
+    QList<QkNode*> nodes();
+    QkNetwork* network();
+    QkGateway* gateway();
     /************************************************/
 
     void _updateNode(int address = 0);
@@ -267,13 +267,11 @@ public:
     void _saveNetwork();
     void _saveGateway();
 
-    void _setSendBytesCallback(void (*c)(quint8 *buf, int count));
-    void _setProcessBytesCallback(void (*c)(quint8 *buf, int count));
 
     void comm_sendPacket(Packet *p);
 
 signals:
-    void comm_sendBytes(quint8 *buf, int count);
+    void comm_sendBytes(QByteArray frame);
     void dataReceived(int address);
     void eventReceived(int address, QkDevice::Event *e);
     void debugString(int address, QString str);
@@ -286,12 +284,16 @@ public slots:
     void stop();
     /************************************************/
     void comm_processBytes(quint8 *buf, int count);
+    void comm_processBytes(QByteArray frame);
 
 private:
     void _comm_processPacket(Packet *p);
     void _comm_processByte(quint8 rxByte);
 
     Comm m_comm;
+    QkGateway *m_gateway;
+    QkNetwork *m_network;
+    QList<QkNode*> m_nodes;
 };
 
 #endif // QK_H
