@@ -133,8 +133,8 @@ public:
         Data(const QString &label = QString(), double value = 0.0);
         void _setLabel(const QString &label);
         void _setValue(double value);
-        QString getLabel();
-        double getValue();
+        QString label();
+        double value();
     private:
         QString m_label;
         double m_value;
@@ -151,10 +151,10 @@ public:
         void _setType(ActionType type);
         void _setArgs(QList<int> args);
         void _setMessage(const QString &msg);
-        QString getLabel();
-        ActionType getType();
-        QList<int> getArgs();
-        QString getText();
+        QString label();
+        ActionType type();
+        QList<int> args();
+        QString text();
     private:
         QString m_label;
         ActionType m_type;
@@ -168,9 +168,9 @@ public:
         void _setLabel(const QString &label);
         void _setArgs(QList<int> args);
         void _setMessage(const QString &msg);
-        QString getLabel();
-        QList<int> getArgs();
-        QString getText();
+        QString label();
+        QList<int> args();
+        QString text();
     private:
         QString m_label;
         QList<int> m_args;
@@ -222,7 +222,6 @@ public:
 };
 class Qk::Comm {
 public:
-    QByteArray frame;
     Packet packet;
     volatile bool txdata;
     volatile bool rxdata;
@@ -271,7 +270,7 @@ public:
     void comm_sendPacket(Packet *p);
 
 signals:
-    void comm_sendBytes(QByteArray frame);
+    void comm_sendFrame(QByteArray frame);
     void dataReceived(int address);
     void eventReceived(int address, QkDevice::Event *e);
     void debugString(int address, QString str);
@@ -280,11 +279,11 @@ signals:
 public slots:
     /**** API ***************************************/
     void search();
-    void start();
-    void stop();
+    void start(int address = 0);
+    void stop(int address = 0);
     /************************************************/
-    void comm_processBytes(quint8 *buf, int count);
-    void comm_processBytes(QByteArray frame);
+    void comm_processFrame(quint8 *buf, int count);
+    void comm_processFrame(QByteArray frame);
 
 private:
     void _comm_processPacket(Packet *p);

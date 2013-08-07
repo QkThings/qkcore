@@ -2,6 +2,9 @@
 #include "qk_utils.h"
 
 #include <QDebug>
+#include <stdio.h>
+
+using namespace std;
 
 static void calculate_hdr_length(Qk::Packet *packet);
 
@@ -50,24 +53,27 @@ void QkCore::search()
 {
     Qk::Packet p;
     Qk::PacketDescriptor pd;
+    pd.address = 0;
     pd.code = QK_COMM_SEARCH;
     Qk::PacketBuilder::build(&p, &pd);
     comm_sendPacket(&p);
 }
 
-void QkCore::start()
+void QkCore::start(int address)
 {
     Qk::Packet p;
     Qk::PacketDescriptor pd;
+    pd.address = address;
     pd.code = QK_COMM_START;
     Qk::PacketBuilder::build(&p, &pd);
     comm_sendPacket(&p);
 }
 
-void QkCore::stop()
+void QkCore::stop(int address)
 {
     Qk::Packet p;
     Qk::PacketDescriptor pd;
+    pd.address = address;
     pd.code = QK_COMM_STOP;
     Qk::PacketBuilder::build(&p, &pd);
     comm_sendPacket(&p);
@@ -91,19 +97,25 @@ void QkCore::comm_sendPacket(Packet *p)
     frame.append(p->code);
     frame.append(p->data);
 
-    emit comm_sendBytes(frame);
+    emit comm_sendFrame(frame);
 }
 
-void QkCore::comm_processBytes(QByteArray frame)
+void QkCore::comm_processFrame(QByteArray frame)
 {
-    comm_processBytes((quint8*)frame.data(), frame.count());
+    comm_processFrame((quint8*)frame.data(), frame.count());
 }
 
-void QkCore::comm_processBytes(quint8 *buf, int count)
+void QkCore::comm_processFrame(quint8 *buf, int count)
 {
-    qDebug() << "comm_processBytes()";
-    while(count--) {
-        _comm_processByte(*buf++);
+    QDebug dbg(QtDebugMsg);
+    quint8 data;
+
+    dbg << "rx: ";
+    while(count--)
+    {
+        data = *buf++;
+        dbg << QString().sprintf("%02X", data);
+        _comm_processByte(data);
     }
 }
 
@@ -118,7 +130,7 @@ void QkCore::_comm_processPacket(Packet *p)
 
 void QkCore::_comm_processByte(quint8 rxByte)
 {
-    Packet *packet = &(m_comm.packet);
+    /*Packet *packet = &(m_comm.packet);
     rxByte &= 0xFF;
 
     if(rxByte == QK_COMM_FLAG) {
@@ -186,7 +198,7 @@ void QkCore::_comm_processByte(quint8 rxByte)
         m_comm.count++;
     }
 
-    m_comm.dle = false;
+    m_comm.dle = false;*/
 }
 
 bool Qk::PacketBuilder::build(Packet *p, PacketDescriptor *pd)
@@ -194,6 +206,7 @@ bool Qk::PacketBuilder::build(Packet *p, PacketDescriptor *pd)
     if(!validate(pd))
         return false;
 
+    p->flags = 0;
     p->address = pd->address;
     p->code = pd->code;
     return true;
