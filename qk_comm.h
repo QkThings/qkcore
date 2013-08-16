@@ -20,66 +20,70 @@ namespace Qk {
 /******************************************************************************/
 #define QK_COMM_WAKEUP      0x00
 #define QK_COMM_FLAG        0x55	// Flag
-#define QK_COMM_SEQBEGIN	0xCB	// Sequence begin
-#define QK_COMM_SEQEND		0xCE	// Sequence end
 #define QK_COMM_DLE			0xDD	// Data Link Escape
 #define QK_COMM_NACK		0x00
 #define QK_COMM_ACK         0x02
-#define QK_COMM_OK			0x01
-#define QK_COMM_ERR			0xFF
+#define QK_COMM_OK          0x03
+#define QK_COMM_ERR         0xFF
 #define QK_COMM_TIMEOUT		0xFE
 
-#define QK_COMM_SAVE        0x04
-#define QK_COMM_RESTORE     0x05
+#define QK_PACKET_CODE_WAKEUP           0xF5
+#define QK_PACKET_CODE_OK               0x01
+#define QK_PACKET_CODE_ERR              0xFF
+#define QK_PACKET_CODE_TIMEOUT          0xFE
+#define QK_PACKET_CODE_SEQBEGIN         0xCB    // Sequence begin
+#define QK_PACKET_CODE_SEQEND           0xCE    // Sequence end
+#define QK_PACKET_CODE_SAVE             0x04
+#define QK_PACKET_CODE_RESTORE          0x05
+#define QK_PACKET_CODE_START            0x0A
+#define QK_PACKET_CODE_STOP             0x0F
+#define QK_PACKET_CODE_SEARCH           0x1F
+#define QK_PACKET_CODE_GETNODE          0x10
+#define QK_PACKET_CODE_GETMODULE        0x11
+#define QK_PACKET_CODE_GETDEVICE        0x12
+#define QK_PACKET_CODE_GETNETWORK       0x13
+#define QK_PACKET_CODE_GETGATEWAY       0x14
+#define QK_PACKET_CODE_GETQK            0x15
+#define QK_PACKET_CODE_GETSAMP          0x16
+#define QK_PACKET_CODE_GETSTATUS        0x17
+#define QK_PACKET_CODE_GETDATA          0x18
+#define QK_PACKET_CODE_GETCALENDAR      0x19
+#define QK_PACKET_CODE_GETINFOACTION    0x2A
+#define QK_PACKET_CODE_GETINFODATA      0x2D
+#define QK_PACKET_CODE_GETINFOCONFIG    0x2C
+#define QK_PACKET_CODE_GETINFOEVENT     0x2E
+#define QK_PACKET_CODE_SETQK            0x33
+#define QK_PACKET_CODE_SETNAME          0x34
+#define QK_PACKET_CODE_SETSAMP          0x36
+#define QK_PACKET_CODE_SETCALENDAR      0x39
+#define QK_PACKET_CODE_SETCONFIG        0x3C
+#define QK_PACKET_CODE_ACTUATE          0x3A
+#define QK_PACKET_CODE_SETBAUD          0x40
+#define QK_PACKET_CODE_SETFREQ          0x41
+#define QK_PACKET_CODE_INFOQK           0xB1
+#define QK_PACKET_CODE_INFOSAMP         0xB2
+#define QK_PACKET_CODE_INFOBOARD        0xB5
+#define QK_PACKET_CODE_INFOMODULE       0xB6
+#define QK_PACKET_CODE_INFODEVICE       0xB7
+#define QK_PACKET_CODE_INFONETWORK      0xB8
+#define QK_PACKET_CODE_INFOGATEWAY      0xB9
+#define QK_PACKET_CODE_INFOACTION       0xBA
+#define QK_PACKET_CODE_INFODATA         0xBD
+#define QK_PACKET_CODE_INFOEVENT        0xBE
+#define QK_PACKET_CODE_INFOCONFIG       0xBC
+#define QK_PACKET_CODE_CALENDAR         0xD1
+#define QK_PACKET_CODE_STATUS           0xD5
+#define QK_PACKET_CODE_DATA             0xD0
+#define QK_PACKET_CODE_EVENT            0xDE
+#define QK_PACKET_CODE_STRING           0xDF
 
-#define QK_COMM_START		0x0A
-#define QK_COMM_STOP		0x0F
-
-#define QK_COMM_SEARCH          0x1F
-#define QK_COMM_GET_NODE        0x10
-#define QK_COMM_GET_MODULE      0x11
-#define QK_COMM_GET_DEVICE      0x12
-#define QK_COMM_GET_NETWORK     0x13
-#define QK_COMM_GET_GATEWAY     0x14
-#define QK_COMM_GET_QK          0x15
-#define QK_COMM_GET_SAMP        0x16
-#define QK_COMM_GET_STATUS      0x17
-#define QK_COMM_GET_DATA        0x18
-#define QK_COMM_GET_CALENDAR    0x19
-
-#define QK_COMM_GET_INFO_ACTION 0x2A
-#define QK_COMM_GET_INFO_DATA   0x2D
-#define QK_COMM_GET_INFO_CONFIG 0x2C
-#define QK_COMM_GET_INFO_EVENT  0x2E
-
-#define QK_COMM_SET_QK          0x33
-#define QK_COMM_SET_NAME        0x34
-#define QK_COMM_SET_SAMP		0x36
-#define QK_COMM_SET_CALENDAR    0x39
-#define QK_COMM_SET_CONFIG      0x3C
-#define QK_COMM_ACTUATE         0x3A
-
-#define QK_COMM_SET_BAUD        0x40
-#define QK_COMM_SET_FREQ        0x41
-
-#define QK_COMM_INFO_QK         0xB1
-#define QK_COMM_INFO_SAMP		0xB2
-#define QK_COMM_INFO_BOARD      0xB5
-#define QK_COMM_INFO_MODULE		0xB6
-#define QK_COMM_INFO_DEVICE		0xB7
-#define QK_COMM_INFO_NETWORK    0xB8
-#define QK_COMM_INFO_GATEWAY    0xB9
-#define QK_COMM_INFO_ACTION     0xBA
-#define QK_COMM_INFO_DATA		0xBD
-#define QK_COMM_INFO_EVENT		0xBE
-#define QK_COMM_INFO_CONFIG		0xBC
-
-#define QK_COMM_CALENDAR        0xD1
-#define QK_COMM_SIZES           0xD2
-#define QK_COMM_STATUS          0xD5
-#define QK_COMM_DATA            0xD0
-#define QK_COMM_EVENT           0xDE
-#define QK_COMM_STRING          0xDF
+#define QK_PACKET_FLAGMASK_EXTEND     0x0080
+#define QK_PACKET_FLAGMASK_SRC        0x0070
+#define QK_PACKET_FLAGMASK_FRAG       0x0008
+#define QK_PACKET_FLAGMASK_LASTFRAG   0x0004
+#define QK_PACKET_FLAGMASK_16BITADDR  0x0002
+#define QK_PACKET_FLAGMASK_ADDRESS    0x0001
+#define QK_PACKET_FLAGMASK_DEST       0x0700
 /******************************************************************************/
 typedef enum qk_error {
   QK_ERR_CODE_UNKNOWN,
