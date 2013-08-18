@@ -30,8 +30,13 @@ using namespace Qk;
 
 class QkCore;
 class QkNode;
+class QkBoard;
+class QkGateway;
+class QkNetwork;
+class QkDevice;
+class QkModule;
 
-class Qk::Info
+class QKLIBSHARED_EXPORT Qk::Info
 {
 public:
     int version_major;
@@ -39,44 +44,46 @@ public:
     int version_patch;
     int baudRate;
     int flags;
+    QString versionString();
 };
 
-class QkBoard : public QObject
+class QKLIBSHARED_EXPORT QkBoard : public QObject
 {
     Q_OBJECT
 public:
-    enum BoardType {
+    enum Type {
         btHost,
         btModule,
         btDevice,
         btNetwork,
         btGateway
     };
-    enum ConfigType {
-        ctIntDec,
-        ctIntHex,
-        ctFloat,
-        ctBool,
-        ctCombo,
-        ctTime,
-        ctDate,
-        ctDateTime
-    };
-    class Config
+    class QKLIBSHARED_EXPORT Config
     {
     public:
-        void _set(const QString label, ConfigType type, QVariant value, double min = 0, double max = 0);
-        bool set(QVariant value, double min = 0, double max = 0);
+        enum Type {
+            ctIntDec,
+            ctIntHex,
+            ctFloat,
+            ctBool,
+            ctCombo,
+            ctTime,
+            ctDateTime
+        };
+        void _set(const QString label, Type type, QVariant value, double min = 0, double max = 0);
+        void setValue(QVariant value);
+        QVariant value();
+        QString label();
+        Type type();
     private:
         QString m_label;
-        ConfigType m_type;
+        Type m_type;
         QVariant m_value;
         double m_min, m_max;
     };
 
     QkBoard(QkCore *qk);
 
-    void _setAddress(int address);
     void _setName(const QString &name);
     void _setFirmwareVersion(int version);
     void _setQkInfo(const Qk::Info &qkInfo);
@@ -90,7 +97,7 @@ public:
     QVector<Config> configs();
 
 protected:
-    BoardType m_type;
+    Type m_type;
     QkNode *m_parentNode;
 
 private:
@@ -131,7 +138,7 @@ private:
 
 };
 
-class QkDevice : public QkBoard {
+class QKLIBSHARED_EXPORT QkDevice : public QkBoard {
     Q_OBJECT
 public:
     enum SamplingMode {
@@ -210,11 +217,12 @@ public:
 
     void setSamplingInfo(const SamplingInfo &info);
     void setSamplingFrequency(int freq);
+    void _setSamplingInfo(const SamplingInfo &info);
     void _setData(QVector<Data> data);
+    void _setActions(QVector<Action> actions);
     void _setEvents(QVector<Event> events);
 
-    SamplingInfo getSamplingInfo();
-    int getSamplingFrequency();
+    SamplingInfo samplingInfo();
 
 protected:
     void setup();
@@ -222,11 +230,13 @@ protected:
 private:
     SamplingInfo m_samplingInfo;
     QVector<Data> m_data;
+    QVector<Action> m_actions;
     QVector<Event> m_events;
 
 };
 
-class QkNode {
+class QKLIBSHARED_EXPORT QkNode
+{
 public:
     QkNode(QkCore *qk, int address);
 
@@ -243,6 +253,26 @@ private:
     QkDevice *m_device;
 };
 
+class QKLIBSHARED_EXPORT Qk::Packet
+{
+public:
+    int address;
+    int flags;
+    int code;
+    QByteArray data;
+    int checksum;
+    int headerLength;
+
+    bool flag_extend;
+    bool flag_fragment;
+    bool flag_lastFragment;
+    bool flag_address;
+    bool flag_16bitaddr;
+
+    QString codeFriendlyName();
+    QkBoard::Type source();
+};
+
 class Qk::Comm
 {
 public:
@@ -254,33 +284,15 @@ public:
     };
     int defaultTimeout;
     bool sequence;
+    Qk::Packet fragmentedPacket;
+    Qk::Packet incomingPacket;
     Ack ack;
 };
 
-class QKLIBSHARED_EXPORT Qk::Packet
-{
-public:
-    int address;
-    int flags;
-    int code;
-    QByteArray data;
-    int checksum;
-    int headerLength;
-
-    QString codeFriendlyName();
-    QkBoard::BoardType source();
-};
-
-/*class Qk::Utils
-{
-public:
-    static int getValue(int count, int *idx, const QByteArray &data);
-    static QString getString(int count, int *idx, const QByteArray &data);
-};*/
 
 class QKLIBSHARED_EXPORT Qk::PacketBuilder {
 public:
-    static bool build(Packet *p, PacketDescriptor *pd);
+    static bool build(Packet *packet, const PacketDescriptor &desc);
     static bool validate(PacketDescriptor *pd);
     static void parse(const QByteArray &frame, Packet *packet);
 };
@@ -318,8 +330,9 @@ public:
 
 signals:
     void comm_sendFrame(QByteArray frame);
-    void gatewayDetected(int address);
-    void networkDetected(int address);
+    void packetProcessed();
+    void gatewayDetected();
+    void networkDetected();
     void moduleDetected(int address);
     void deviceDetected(int address);
 
