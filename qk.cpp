@@ -28,19 +28,16 @@ QkBoard::QkBoard(QkCore *qk)
 
 void QkBoard::_setFirmwareVersion(int version)
 {
-    qDebug() << "QkBoard::_setFirmwareVersion()" << version;
     m_fwVersion = version;
 }
 
 void QkBoard::_setQkInfo(const Qk::Info &qkInfo)
 {
-    qDebug() << "QkBoard::_setQkInfo()";
     m_qkInfo = qkInfo;
 }
 
 void QkBoard::_setName(const QString &name)
 {
-    qDebug() << "QkBoard::_setName()" << name;
     m_name = name;
 }
 
@@ -168,6 +165,46 @@ QkDevice::SamplingInfo QkDevice::samplingInfo()
     return m_samplingInfo;
 }
 
+QVector<QkDevice::Data> QkDevice::data()
+{
+    return m_data;
+}
+
+QVector<QkDevice::Action> QkDevice::actions()
+{
+    return m_actions;
+}
+
+QVector<QkDevice::Event> QkDevice::events()
+{
+    return m_events;
+}
+
+QkDevice::Data::Data()
+{
+    m_value = 0.0;
+}
+
+void QkDevice::Data::_setLabel(const QString &label)
+{
+    m_label = label;
+}
+
+void QkDevice::Data::_setValue(double value)
+{
+    m_value = value;
+}
+
+QString QkDevice::Data::label()
+{
+    return m_label;
+}
+
+double QkDevice::Data::value()
+{
+    return m_value;
+}
+
 QkNode::QkNode(QkCore *qk, int address)
 {
     m_qk = qk;
@@ -208,7 +245,7 @@ QkCore::QkCore()
     m_network = 0;
     m_nodes.clear();
     m_comm.sequence = false;
-    setCommTimeout(3000);
+    setCommTimeout(2000);
 }
 
 QkCore::~QkCore()
@@ -382,12 +419,15 @@ void QkCore::_comm_processPacket(Packet *p)
         return;
     }
 
-    int i, j, size, fwVersion, ncfg;
+    int i, j, size, fwVersion, ncfg, ndat, nact, nevt;
     int year, month, day, hours, minutes, seconds;
     double min = 0.0, max = 0.0;
+    QString debugStr;
     Qk::Info qkInfo;
     QVector<QkBoard::Config> configs;
     QkBoard::Config::Type configType;
+    QVector<QkDevice::Data> data;
+    QkDevice::Data::Type dataType;
     QString label, name;
     QVariant varValue;
     QStringList items;
@@ -469,9 +509,6 @@ void QkCore::_comm_processPacket(Packet *p)
                 varValue = QVariant(items);
                 break;
             }
-            qDebug() << "configType" << configType;
-            qDebug() << "configLabel" << label;
-            qDebug() << "configValue" << varValue;
             configs[i]._set(label, configType, varValue, min, max);
         }
         selBoard->_setConfigs(configs);
@@ -485,10 +522,24 @@ void QkCore::_comm_processPacket(Packet *p)
         selDevice->_setSamplingInfo(sampInfo);
         break;
     case QK_PACKET_CODE_INFODATA:
+        ndat = getValue(1, &i_data, p->data);
+        data = QVector<QkDevice::Data>(ndat);
+        dataType = (QkDevice::Data::Type)getValue(1, &i_data, p->data);
+        for(i=0; i<ndat; i++)
+        {
+            data[i]._setLabel(getString(QK_LABEL_SIZE, &i_data, p->data));
+        }
+        selDevice->_setData(data);
         break;
     case QK_PACKET_CODE_INFOEVENT:
         break;
     case QK_PACKET_CODE_INFOACTION:
+        break;
+    case QK_PACKET_CODE_DATA:
+        qDebug() << "DATA RECEIVED";
+        break;
+    case QK_PACKET_CODE_STRING:
+        debugStr = getString(&i_data, p->data);
         break;
     case QK_PACKET_CODE_OK: //FIXME not tested
         m_comm.ack.code = QK_COMM_OK;
@@ -547,6 +598,10 @@ void QkCore::_comm_processPacket(Packet *p)
         break;
     case QK_PACKET_CODE_EVENT:
         //emit eventReceived(selNode->address());
+        break;
+    case QK_PACKET_CODE_STRING:
+        qDebug() << "emit debugString()";
+        emit debugString(selNode->address(), debugStr);
         break;
     case QK_PACKET_CODE_ERR:
         emit error(m_comm.ack.err);
@@ -783,79 +838,56 @@ QString Qk::Packet::codeFriendlyName()
         return "SEARCH";
     case QK_PACKET_CODE_SEQBEGIN:
         return "SEQBEGIN";
-        break;
     case QK_PACKET_CODE_SEQEND:
         return "SEQEND";
-        break;
     case QK_PACKET_CODE_GETNODE:
         return "GET_NODE";
-        break;
     case QK_PACKET_CODE_GETMODULE:
         return "GET_MODULE";
-        break;
     case QK_PACKET_CODE_GETDEVICE:
         return "GET_DEVICE";
     case QK_PACKET_CODE_GETNETWORK:
         return "GET_NETWORK";
-        break;
     case QK_PACKET_CODE_INFOQK:
         return "INFO_QK";
-        break;
     case QK_PACKET_CODE_INFOSAMP:
         return "INFO_SAMP";
-        break;
     case QK_PACKET_CODE_INFOBOARD:
         return "INFO_BOARD";
-        break;
     case QK_PACKET_CODE_INFOMODULE:
         return "INFO_MODULE";
-        break;
     case QK_PACKET_CODE_INFODEVICE:
         return "INFO_DEVICE";
-        break;
     case QK_PACKET_CODE_INFONETWORK:
         return "INFO_NETWORK";
-        break;
     case QK_PACKET_CODE_INFOGATEWAY:
         return "INFO_GATEWAY";
-        break;
     case QK_PACKET_CODE_INFODATA:
         return "INFO_DATA";
-        break;
     case QK_PACKET_CODE_INFOEVENT:
         return "INFO_EVENT";
-        break;
     case QK_PACKET_CODE_INFOACTION:
         return "INFO_ACTION";
     case QK_PACKET_CODE_INFOCONFIG:
         return "INFO_CONFIG";
-        break;
     case QK_PACKET_CODE_DATA:
         return "DATA";
-        break;
     case QK_PACKET_CODE_EVENT:
         return "EVENT";
-        break;
     case QK_PACKET_CODE_STATUS:
         return "STATUS";
-        break;
     case QK_PACKET_CODE_START:
         return "START";
-        break;
     case QK_PACKET_CODE_STOP:
         return "STOP";
-        break;
     case QK_PACKET_CODE_STRING:
         return "STRING";
-        break;
     case QK_PACKET_CODE_OK:
         return "OK";
-        break;
     case QK_PACKET_CODE_ERR:
         return "ERR";
     case QK_PACKET_CODE_TIMEOUT:
         return "TIMEOUT";
-        break;
     default:
         return "???";
     }

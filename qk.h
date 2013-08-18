@@ -138,14 +138,17 @@ private:
 
 };
 
-class QKLIBSHARED_EXPORT QkDevice : public QkBoard {
+class QKLIBSHARED_EXPORT QkDevice : public QkBoard
+{
     Q_OBJECT
 public:
-    enum SamplingMode {
+    enum SamplingMode
+    {
         smContinuous,
         smTriggered
     };
-    enum TriggerClock {
+    enum TriggerClock
+    {
         tcSingle,
         tc1Sec,
         tc10Sec,
@@ -153,7 +156,8 @@ public:
         tc10Min,
         tc1Hour
     };
-    class SamplingInfo {
+    class SamplingInfo
+    {
     public:
         SamplingMode mode;
         int frequency;
@@ -161,9 +165,15 @@ public:
         int triggerScaler;
         int N;
     };
-    class Data {
+    class QKLIBSHARED_EXPORT Data
+    {
     public:
-        Data(const QString &label = QString(), double value = 0.0);
+        enum Type
+        {
+            dtInt,
+            dtFloat
+        };
+        Data();
         void _setLabel(const QString &label);
         void _setValue(double value);
         QString label();
@@ -177,7 +187,7 @@ public:
         atNumber,
         atText
     };
-    class Action {
+    class QKLIBSHARED_EXPORT Action {
     public:
         Action(const QString &label = QString());
         void _setLabel(const QString &label);
@@ -195,9 +205,8 @@ public:
         QString  m_text;
     };
 
-    class Event {
+    class QKLIBSHARED_EXPORT Event {
     public:
-        Event(const QString &label = QString());
         void _setLabel(const QString &label);
         void _setArgs(QList<int> args);
         void _setMessage(const QString &msg);
@@ -223,6 +232,9 @@ public:
     void _setEvents(QVector<Event> events);
 
     SamplingInfo samplingInfo();
+    QVector<Data> data();
+    QVector<Action> actions();
+    QVector<Event> events();
 
 protected:
     void setup();
