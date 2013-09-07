@@ -21,6 +21,9 @@ namespace Qk
 
 namespace QkUtils
 {
+    void fillValue(int value, int count, int *idx, QByteArray &data);
+    void fillString(const QString &str, int count, int *idx, QByteArray &data);
+    void fillString(const QString &str, int *idx, QByteArray &data);
     int getValue(int count, int *idx, const QByteArray &data, bool sigExt = false);
     QString getString(int *idx, const QByteArray &data);
     QString getString(int count, int *idx, const QByteArray &data);
@@ -88,9 +91,11 @@ public:
     void _setFirmwareVersion(int version);
     void _setQkInfo(const Qk::Info &qkInfo);
     void _setConfigs(QVector<Config> configs);
-    void update();
+    void setConfigValue(int idx, QVariant value);
     void save();
+    void update();
 
+    int address();
     QString name();
     int firmwareVersion();
     Qk::Info qkInfo();
@@ -99,13 +104,12 @@ public:
 protected:
     Type m_type;
     QkNode *m_parentNode;
-
+    QkCore *m_qk;
 private:
     QString m_name;
     int m_fwVersion;
     Qk::Info m_qkInfo;
     QVector<Config> m_configs;
-    QkCore *m_qk;
 };
 
 class QkGateway : public QkBoard {
@@ -175,12 +179,12 @@ public:
         };
         Data();
         void _setLabel(const QString &label);
-        void _setValue(double value);
+        void _setValue(float value);
         QString label();
-        double value();
+        float value();
     private:
         QString m_label;
-        double m_value;
+        float m_value;
     };
     enum ActionType {
         atBool,
@@ -192,30 +196,30 @@ public:
         Action(const QString &label = QString());
         void _setLabel(const QString &label);
         void _setType(ActionType type);
-        void _setArgs(QList<int> args);
+        void _setArgs(QList<float> args);
         void _setMessage(const QString &msg);
         QString label();
         ActionType type();
-        QList<int> args();
+        QList<float> args();
         QString text();
     private:
         QString m_label;
         ActionType m_type;
-        QList<int> m_args;
+        QList<float> m_args;
         QString  m_text;
     };
 
     class QKLIBSHARED_EXPORT Event {
     public:
         void _setLabel(const QString &label);
-        void _setArgs(QList<int> args);
+        void _setArgs(QList<float> args);
         void _setMessage(const QString &msg);
         QString label();
-        QList<int> args();
-        QString text();
+        QList<float> args();
+        QString message();
     private:
         QString m_label;
-        QList<int> m_args;
+        QList<float> m_args;
         QString m_text;
     };
 
@@ -224,14 +228,19 @@ public:
     static SamplingMode getSamplingModeEnum(const QString &name);
     static TriggerClock getTriggerClockEnum(const QString &name);
 
+    void update();
+
     void setSamplingInfo(const SamplingInfo &info);
     void setSamplingFrequency(int freq);
-    void _setSamplingInfo(const SamplingInfo &info);
+    void _setSamplingInfo(SamplingInfo info);
     void _setData(QVector<Data> data);
+    void _setDataType(Data::Type type);
+    void _setDataValue(int idx, float value);
     void _setActions(QVector<Action> actions);
     void _setEvents(QVector<Event> events);
 
     SamplingInfo samplingInfo();
+    Data::Type dataType();
     QVector<Data> data();
     QVector<Action> actions();
     QVector<Event> events();
@@ -244,6 +253,7 @@ private:
     QVector<Data> m_data;
     QVector<Action> m_actions;
     QVector<Event> m_events;
+    Data::Type m_dataType;
 
 };
 
@@ -304,7 +314,7 @@ public:
 
 class QKLIBSHARED_EXPORT Qk::PacketBuilder {
 public:
-    static bool build(Packet *packet, const PacketDescriptor &desc);
+    static bool build(Packet *packet, const PacketDescriptor &desc, QkBoard *board = 0);
     static bool validate(PacketDescriptor *pd);
     static void parse(const QByteArray &frame, Packet *packet);
 };
@@ -320,6 +330,8 @@ public:
 
     static QString version();
     static QString errorMessage(int errCode);
+    static float floatFromBytes(int value);
+    static int bytesFromFloat(float value);
 
     /**** API ***************************************/
     QkNode* node(int address = 0);
@@ -343,25 +355,31 @@ public:
 signals:
     void comm_sendFrame(QByteArray frame);
     void packetProcessed();
-    void gatewayDetected();
-    void networkDetected();
-    void moduleDetected(int address);
-    void deviceDetected(int address);
+    void gatewayFound();
+    void networkFound();
+    void moduleFound(int address);
+    void deviceFound(int address);
+    void deviceUpdated(int address);
 
     void dataReceived(int address);
-    void eventReceived(int address, QkDevice::Event *e);
+    void eventReceived(int address, QkDevice::Event e);
     void debugString(int address, QString str);
-    void error(int errCode);
+    void error(int errCode, int errArg);
 
 public slots:
     /**** API ***************************************/
     int search();
+    int getNode(int address = 0);
     int start(int address = 0);
     int stop(int address = 0);
     /************************************************/
     void comm_processFrame(QByteArray frame);
 
 private:
+    union _IntFloatConverter {
+        float f_value;
+        int i_value;
+    };
     void _comm_parseFrame(QByteArray frame, Qk::Packet *packet);
     void _comm_processPacket(Packet *p);
     int _comm_wait(int timeout);

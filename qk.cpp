@@ -85,6 +85,14 @@ QVector<QkBoard::Config> QkBoard::configs()
     return m_configs;
 }
 
+int QkBoard::address()
+{
+    if(m_parentNode != 0)
+        return m_parentNode->address();
+    else
+        return 0;
+}
+
 QString QkBoard::name()
 {
     return m_name;
@@ -95,9 +103,38 @@ int QkBoard::firmwareVersion()
     return m_fwVersion;
 }
 
+void QkBoard::setConfigValue(int idx, QVariant value)
+{
+    if(idx < 0 || idx >= m_configs.count())
+        return;
+
+    m_configs[idx].setValue(value);
+}
+
 void QkBoard::update()
 {
+    int i;
+    Qk::Packet p;
+    Qk::PacketDescriptor desc;
+    desc.boardType = m_type;
+    desc.address = address();
 
+    desc.code = QK_PACKET_CODE_SETNAME;
+    desc.setname_str = name();
+    Qk::PacketBuilder::build(&p, desc, this);
+    m_qk->comm_sendPacket(&p);
+
+    desc.code = QK_PACKET_CODE_SETSAMP;
+    Qk::PacketBuilder::build(&p, desc, this);
+    m_qk->comm_sendPacket(&p);
+
+    desc.code = QK_PACKET_CODE_SETCONFIG;
+    for(i = 0; i < configs().count(); i++)
+    {
+        desc.setconfig_idx = i;
+        Qk::PacketBuilder::build(&p, desc, this);
+        m_qk->comm_sendPacket(&p);
+    }
 }
 
 void QkBoard::save()
@@ -105,10 +142,7 @@ void QkBoard::save()
     Qk::Packet p;
     Qk::PacketDescriptor desc;
     desc.boardType = m_type;
-    if(m_parentNode != 0)
-        desc.address = m_parentNode->address();
-    else
-        desc.address = 0;
+    desc.address = address();
     desc.code = QK_PACKET_CODE_SAVE;
     Qk::PacketBuilder::build(&p, desc);
     m_qk->comm_sendPacket(&p);
@@ -140,7 +174,12 @@ QkDevice::QkDevice(QkCore *qk, QkNode *parentNode) :
     m_type = btDevice;
 }
 
-void QkDevice::_setSamplingInfo(const SamplingInfo &info)
+void QkDevice::update()
+{
+    QkBoard::update();
+}
+
+void QkDevice::_setSamplingInfo(SamplingInfo info)
 {
     m_samplingInfo = info;
 }
@@ -148,6 +187,19 @@ void QkDevice::_setSamplingInfo(const SamplingInfo &info)
 void QkDevice::_setData(QVector<Data> data)
 {
     m_data = data;
+}
+
+void QkDevice::_setDataType(Data::Type type)
+{
+    m_dataType = type;
+}
+
+void QkDevice::_setDataValue(int idx, float value)
+{
+    if(idx < 0 || idx > m_data.count())
+        return;
+
+    m_data[idx]._setValue(value);
 }
 
 void QkDevice::_setActions(QVector<Action> actions)
@@ -163,6 +215,11 @@ void QkDevice::_setEvents(QVector<Event> events)
 QkDevice::SamplingInfo QkDevice::samplingInfo()
 {
     return m_samplingInfo;
+}
+
+QkDevice::Data::Type QkDevice::dataType()
+{
+    return m_dataType;
 }
 
 QVector<QkDevice::Data> QkDevice::data()
@@ -190,7 +247,7 @@ void QkDevice::Data::_setLabel(const QString &label)
     m_label = label;
 }
 
-void QkDevice::Data::_setValue(double value)
+void QkDevice::Data::_setValue(float value)
 {
     m_value = value;
 }
@@ -200,9 +257,39 @@ QString QkDevice::Data::label()
     return m_label;
 }
 
-double QkDevice::Data::value()
+float QkDevice::Data::value()
 {
     return m_value;
+}
+
+void QkDevice::Event::_setLabel(const QString &label)
+{
+    m_label = label;
+}
+
+void QkDevice::Event::_setMessage(const QString &msg)
+{
+    m_text = msg;
+}
+
+void QkDevice::Event::_setArgs(QList<float> args)
+{
+    m_args = args;
+}
+
+QString QkDevice::Event::label()
+{
+    return m_label;
+}
+
+QString QkDevice::Event::message()
+{
+    return m_text;
+}
+
+QList<float> QkDevice::Event::args()
+{
+    return m_args;
 }
 
 QkNode::QkNode(QkCore *qk, int address)
@@ -279,6 +366,18 @@ int QkCore::search()
     Qk::PacketDescriptor pd;
     pd.address = 0;
     pd.code = QK_PACKET_CODE_SEARCH;
+    Qk::PacketBuilder::build(&p, pd);
+    comm_sendPacket(&p);
+    return _comm_wait(m_comm.defaultTimeout);
+}
+
+int QkCore::getNode(int address)
+{
+    Qk::Packet p;
+    Qk::PacketDescriptor pd;
+    pd.address = 0;
+    pd.code = QK_PACKET_CODE_GETNODE;
+    pd.getnode_address = address;
     Qk::PacketBuilder::build(&p, pd);
     comm_sendPacket(&p);
     return _comm_wait(m_comm.defaultTimeout);
@@ -415,24 +514,29 @@ void QkCore::_comm_processPacket(Packet *p)
 
     if(selBoard == 0)
     {
-        qDebug() << "selBoard == 0";
+        qDebug() << "ERROR: selBoard == 0";
         return;
     }
 
-    int i, j, size, fwVersion, ncfg, ndat, nact, nevt;
+    int i, j, size, fwVersion, ncfg, ndat, nact, nevt, eventID, nargs;
     int year, month, day, hours, minutes, seconds;
     double min = 0.0, max = 0.0;
+    float dataValue;
     QString debugStr;
     Qk::Info qkInfo;
     QVector<QkBoard::Config> configs;
     QkBoard::Config::Type configType;
     QVector<QkDevice::Data> data;
     QkDevice::Data::Type dataType;
+    QVector<QkDevice::Event> events;
+    QkDevice::Event firedEvent;
     QString label, name;
     QVariant varValue;
     QStringList items;
     QDateTime dateTime;
     QkDevice::SamplingInfo sampInfo;
+    QList<float> eventArgs;
+    float eventArg;
 
     int i_data = 0;
     switch(p->code)
@@ -518,7 +622,7 @@ void QkCore::_comm_processPacket(Packet *p)
         sampInfo.mode = (QkDevice::SamplingMode) getValue(1, &i_data, p->data);
         sampInfo.triggerClock = (QkDevice::TriggerClock) getValue(1, &i_data, p->data);
         sampInfo.triggerScaler = getValue(1, &i_data, p->data);
-        sampInfo.N = getValue(1, &i_data, p->data);
+        sampInfo.N = getValue(4, &i_data, p->data);
         selDevice->_setSamplingInfo(sampInfo);
         break;
     case QK_PACKET_CODE_INFODATA:
@@ -529,14 +633,44 @@ void QkCore::_comm_processPacket(Packet *p)
         {
             data[i]._setLabel(getString(QK_LABEL_SIZE, &i_data, p->data));
         }
+        selDevice->_setDataType(dataType);
         selDevice->_setData(data);
         break;
     case QK_PACKET_CODE_INFOEVENT:
+        nevt = getValue(1, &i_data, p->data);
+        events = QVector<QkDevice::Event>(nevt);
+        for(i=0; i<nevt; i++)
+        {
+            events[i]._setLabel(getString(QK_LABEL_SIZE, &i_data, p->data));
+        }
+        selDevice->_setEvents(events);
         break;
     case QK_PACKET_CODE_INFOACTION:
         break;
     case QK_PACKET_CODE_DATA:
-        qDebug() << "DATA RECEIVED";
+        ndat = getValue(1, &i_data, p->data);
+        dataType = (QkDevice::Data::Type)getValue(1, &i_data, p->data);
+        for(i=0; i<ndat; i++)
+        {
+            if(dataType == QkDevice::Data::dtInt)
+                dataValue = getValue(4, &i_data, p->data, true);
+            else
+                dataValue = floatFromBytes(getValue(4, &i_data, p->data, true));
+            selDevice->_setDataValue(i, dataValue);
+        }
+        break;
+    case QK_PACKET_CODE_EVENT:
+        eventID = getValue(1, &i_data, p->data);
+        firedEvent._setLabel(selDevice->events()[eventID].label());
+        nargs = getValue(1, &i_data, p->data);
+        eventArgs.clear();
+        for(i=0; i<nargs; i++)
+        {
+            eventArg = floatFromBytes(getValue(4, &i_data, p->data, true));
+            eventArgs.append(eventArg);
+        }
+        firedEvent._setArgs(eventArgs);
+        firedEvent._setMessage(getString(&i_data, p->data));
         break;
     case QK_PACKET_CODE_STRING:
         debugStr = getString(&i_data, p->data);
@@ -553,6 +687,7 @@ void QkCore::_comm_processPacket(Packet *p)
     default:
         m_comm.ack.code = QK_COMM_ERR;
         m_comm.ack.err = QK_ERR_CODE_UNKNOWN;
+        m_comm.ack.arg = p->code;
         //qDebug() << "Packet code not recognized:" << QString().sprintf("%02X", p->code);
     }
 
@@ -574,22 +709,25 @@ void QkCore::_comm_processPacket(Packet *p)
     switch(p->code)
     {
     case QK_PACKET_CODE_SEQEND:
-        qDebug() << "m_comm.ack.arg" << m_comm.ack.arg;
+        qDebug() << "m_comm.ack.arg" << QString().sprintf("%02X", m_comm.ack.arg);
         switch(m_comm.ack.arg)
         {
-        case QK_PACKET_CODE_GETGATEWAY:
-            emit gatewayDetected();
+        case QK_PACKET_CODE_GATEWAYFOUND:
+            emit gatewayFound();
             break;
-        case QK_PACKET_CODE_GETNETWORK:
-            emit networkDetected();
+        case QK_PACKET_CODE_NETWORKFOUND:
+            emit networkFound();
             break;
-        case QK_PACKET_CODE_GETMODULE:
-            qDebug() << "QkModule detected:" << QString().sprintf("%04X",selNode->address());
-            emit moduleDetected(selNode->address());
+        case QK_PACKET_CODE_MODULEFOUND:
+            qDebug() << "QkModule found:" << QString().sprintf("%04X",selNode->address());
+            emit moduleFound(selNode->address());
+            break;
+        case QK_PACKET_CODE_DEVICEFOUND:
+            qDebug() << "QkDevice found:" << QString().sprintf("%04X",selNode->address());
+            emit deviceFound(selNode->address());
             break;
         case QK_PACKET_CODE_GETDEVICE:
-            qDebug() << "QkDevice detected:" << QString().sprintf("%04X",selNode->address());
-            emit deviceDetected(selNode->address());
+            emit deviceUpdated(selNode->address());
             break;
         }
         break;
@@ -597,14 +735,13 @@ void QkCore::_comm_processPacket(Packet *p)
         emit dataReceived(selNode->address());
         break;
     case QK_PACKET_CODE_EVENT:
-        //emit eventReceived(selNode->address());
+        emit eventReceived(selNode->address(), firedEvent);
         break;
     case QK_PACKET_CODE_STRING:
-        qDebug() << "emit debugString()";
         emit debugString(selNode->address(), debugStr);
         break;
     case QK_PACKET_CODE_ERR:
-        emit error(m_comm.ack.err);
+        emit error(m_comm.ack.err, m_comm.ack.arg);
         break;
     default: ;
     }
@@ -641,20 +778,97 @@ int QkCore::_comm_wait(int timeout)
     qDebug() << "elapsed time =" << elapsedTimer.elapsed();
 
     if(elapsedTimer.hasExpired(timeout))
-        error(QK_ERR_COMM_TIMEOUT);
+        error(QK_ERR_COMM_TIMEOUT, timeout);
 
     return m_comm.ack.code;
 }
 
-bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc)
+bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBoard *board)
 {
     //if(!validate(pd))
-      //  return false;
+        //return false;
+
+    int i_data;
+    QkDevice *device = 0;
+    using namespace QkUtils;
 
     packet->flags = 0;
     packet->address = desc.address;
     packet->code = desc.code;
     packet->data.clear();
+
+
+    if(board != 0)
+    {
+        switch(desc.boardType)
+        {
+        case QkBoard::btDevice:
+            device = (QkDevice *) board;
+            break;
+        default: qDebug() << "cant build packets for that board type (yet!)";
+        }
+    }
+
+    QkDevice::SamplingInfo sampInfo;
+    QVector<QkBoard::Config> configs;
+    QVariant configValue;
+
+    i_data = 0;
+    switch(desc.code)
+    {
+    case QK_PACKET_CODE_GETNODE:
+        fillValue(desc.getnode_address, 4, &i_data, packet->data);
+        break;
+    case QK_PACKET_CODE_SETNAME:
+        fillString(desc.setname_str, QK_BOARD_NAME_SIZE, &i_data, packet->data);
+        break;
+    case QK_PACKET_CODE_SETCONFIG:
+        configs = board->configs();
+        fillValue(1, 1, &i_data, packet->data);
+        fillValue(desc.setconfig_idx, 1, &i_data, packet->data);
+        configValue = configs[desc.setconfig_idx].value();
+        switch(configs[desc.setconfig_idx].type())
+        {
+        case QkBoard::Config::ctBool:
+            fillValue(configValue.toInt(), 1, &i_data, packet->data);
+            break;
+        case QkBoard::Config::ctIntDec:
+        case QkBoard::Config::ctIntHex:
+            fillValue(configValue.toInt(), 4, &i_data, packet->data);
+            break;
+        case QkBoard::Config::ctFloat:
+            fillValue(configValue.toInt(), 4, &i_data, packet->data); //FIXME ? use bytesFromFloat?
+            break;
+        case QkBoard::Config::ctDateTime:
+            fillValue(configValue.toDateTime().date().year()-2000, 1, &i_data, packet->data);
+            fillValue(configValue.toDateTime().date().month(), 1, &i_data, packet->data);
+            fillValue(configValue.toDateTime().date().day(), 1, &i_data, packet->data);
+        case QkBoard::Config::ctTime:
+            fillValue(configValue.toDateTime().time().hour(), 1, &i_data, packet->data);
+            fillValue(configValue.toDateTime().time().minute(), 1, &i_data, packet->data);
+            fillValue(configValue.toDateTime().time().second(), 1, &i_data, packet->data);
+            break;
+        case QkBoard::Config::ctCombo:
+            break;
+        default: ;
+        }
+        break;
+    case QK_PACKET_CODE_SETSAMP:
+        sampInfo = device->samplingInfo();
+        qDebug() << "SETSAMP";
+        qDebug() << "frequency" << sampInfo.frequency;
+        qDebug() << "mode" << sampInfo.mode;
+        qDebug() << "clock" << sampInfo.triggerClock;
+        qDebug() << "scaler" << sampInfo.triggerScaler;
+        qDebug() << "N" << sampInfo.N;
+        fillValue(sampInfo.frequency, 4, &i_data, packet->data);
+        fillValue(sampInfo.mode, 1, &i_data, packet->data);
+        fillValue((int)(sampInfo.triggerClock), 1, &i_data, packet->data);
+        fillValue((int)(sampInfo.triggerScaler), 1, &i_data, packet->data);
+        fillValue(sampInfo.N, 4, &i_data, packet->data);
+        break;
+    }
+
     return true;
 }
 
@@ -666,6 +880,10 @@ bool Qk::PacketBuilder::validate(PacketDescriptor *pd)
     {
     default: ok = true;
     }
+
+    //if(!ok)
+        //qDebug() << "Qk::PacketBuilder::validate() BAD PACKET, code =" << Qk::Packet::codeFriendlyName(pd->code);
+
     return ok;
 }
 
@@ -712,6 +930,29 @@ void Qk::PacketBuilder::parse(const QByteArray &frame, Packet *packet)
     packet->data.clear();
     packet->data.append(frame.right(frame.count() - i_data));
     packet->data.truncate(packet->data.count() - 1); // remove checksum byte
+}
+
+void QkUtils::fillValue(int value, int count, int *idx, QByteArray &data)
+{
+    int i, j = *idx;
+    for(i = 0; i < count; i++, j++)
+    {
+        data.insert(j, (value >> 8*i) & 0xFF);
+    }
+    *idx = j;
+}
+
+void QkUtils::fillString(const QString &str, int count, int *idx, QByteArray &data)
+{
+    QString justifiedStr = str.leftJustified(count, '\0', true);
+    fillString(justifiedStr, idx, data);
+}
+
+void QkUtils::fillString(const QString &str, int *idx, QByteArray &data)
+{
+    int j = *idx;
+    data.insert(j, str);
+    j += str.length()+1;
 }
 
 int QkUtils::getValue(int count, int *idx, const QByteArray &data, bool sigExt)
@@ -848,6 +1089,12 @@ QString Qk::Packet::codeFriendlyName()
         return "GET_DEVICE";
     case QK_PACKET_CODE_GETNETWORK:
         return "GET_NETWORK";
+    case QK_PACKET_CODE_SETNAME:
+        return "SET_NAME";
+    case QK_PACKET_CODE_SETCONFIG:
+        return "SET_CONFIG";
+    case QK_PACKET_CODE_SETSAMP:
+        return "SET_SAMP";
     case QK_PACKET_CODE_INFOQK:
         return "INFO_QK";
     case QK_PACKET_CODE_INFOSAMP:
@@ -891,6 +1138,20 @@ QString Qk::Packet::codeFriendlyName()
     default:
         return "???";
     }
+}
+
+float QkCore::floatFromBytes(int value)
+{
+    _IntFloatConverter converter;
+    converter.i_value = value;
+    return converter.f_value;
+}
+
+int QkCore::bytesFromFloat(float value)
+{
+    _IntFloatConverter converter;
+    converter.f_value = value;
+    return converter.i_value;
 }
 
 static void calculate_hdr_length(Qk::Packet *packet) {

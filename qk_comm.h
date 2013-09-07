@@ -2,19 +2,20 @@
 #define QK_COMM_H
 
 #include "stdint.h"
+#include <QString>
 
 namespace Qk {
-    typedef struct PacketDescriptor
+    class PacketDescriptor
     {
+    public:
         uint64_t address;
         uint8_t  code;
         uint8_t  boardType;
-        union {
-            struct {
 
-            };
-        };
-    } PacketDescriptor;
+        QString setname_str;
+        int getnode_address;
+        int setconfig_idx;
+    };
 }
 
 /******************************************************************************/
@@ -35,9 +36,9 @@ namespace Qk {
 #define QK_PACKET_CODE_SEQEND           0xCE    // Sequence end
 #define QK_PACKET_CODE_SAVE             0x04
 #define QK_PACKET_CODE_RESTORE          0x05
+#define QK_PACKET_CODE_SEARCH           0x06
 #define QK_PACKET_CODE_START            0x0A
 #define QK_PACKET_CODE_STOP             0x0F
-#define QK_PACKET_CODE_SEARCH           0x1F
 #define QK_PACKET_CODE_GETNODE          0x10
 #define QK_PACKET_CODE_GETMODULE        0x11
 #define QK_PACKET_CODE_GETDEVICE        0x12
@@ -52,6 +53,10 @@ namespace Qk {
 #define QK_PACKET_CODE_GETINFODATA      0x2D
 #define QK_PACKET_CODE_GETINFOCONFIG    0x2C
 #define QK_PACKET_CODE_GETINFOEVENT     0x2E
+#define QK_PACKET_CODE_DEVICEFOUND      0x1A
+#define QK_PACKET_CODE_MODULEFOUND      0x1B
+#define QK_PACKET_CODE_NETWORKFOUND     0x1C
+#define QK_PACKET_CODE_GATEWAYFOUND     0x1D
 #define QK_PACKET_CODE_SETQK            0x33
 #define QK_PACKET_CODE_SETNAME          0x34
 #define QK_PACKET_CODE_SETSAMP          0x36
