@@ -1,4 +1,5 @@
-#include "qk.h"
+#include "qkcore.h"
+#include "qk_defs.h"
 #include "qk_utils.h"
 
 #include <QDebug>
@@ -9,12 +10,13 @@
 #include <QDateTime>
 #include <QTime>
 #include <QDate>
+#include <QMetaEnum>
 
 using namespace std;
 
-static void calculate_hdr_length(Qk::Packet *packet);
+static void calculate_hdr_length(QkCore::Packet *packet);
 
-QString Qk::Info::versionString()
+QString QkCore::Info::versionString()
 {
     return QString().sprintf("%d.%d.%d", version_major,
                                           version_minor,
@@ -31,7 +33,7 @@ void QkBoard::_setFirmwareVersion(int version)
     m_fwVersion = version;
 }
 
-void QkBoard::_setQkInfo(const Qk::Info &qkInfo)
+void QkBoard::_setQkInfo(const QkCore::Info &qkInfo)
 {
     m_qkInfo = qkInfo;
 }
@@ -75,7 +77,7 @@ QVariant QkBoard::Config::value()
     return m_value;
 }
 
-Qk::Info QkBoard::qkInfo()
+QkCore::Info QkBoard::qkInfo()
 {
     return m_qkInfo;
 }
@@ -111,41 +113,50 @@ void QkBoard::setConfigValue(int idx, QVariant value)
     m_configs[idx].setValue(value);
 }
 
-void QkBoard::update()
+QkCore::Comm::Ack QkBoard::update()
 {
     int i;
-    Qk::Packet p;
-    Qk::PacketDescriptor desc;
+    QkCore::Comm::Ack ack;
+    QkCore::Packet p;
+    QkCore::PacketDescriptor desc;
     desc.boardType = m_type;
     desc.address = address();
 
     desc.code = QK_PACKET_CODE_SETNAME;
     desc.setname_str = name();
-    Qk::PacketBuilder::build(&p, desc, this);
-    m_qk->comm_sendPacket(&p);
+    QkCore::PacketBuilder::build(&p, desc, this);
+    ack = m_qk->comm_sendPacket(&p, true);
+    if(ack.code != QK_COMM_OK)
+        return ack;
 
     desc.code = QK_PACKET_CODE_SETSAMP;
-    Qk::PacketBuilder::build(&p, desc, this);
-    m_qk->comm_sendPacket(&p);
+    QkCore::PacketBuilder::build(&p, desc, this);
+    ack = m_qk->comm_sendPacket(&p, true);
+    if(ack.code != QK_COMM_OK)
+        return ack;
 
     desc.code = QK_PACKET_CODE_SETCONFIG;
     for(i = 0; i < configs().count(); i++)
     {
         desc.setconfig_idx = i;
-        Qk::PacketBuilder::build(&p, desc, this);
-        m_qk->comm_sendPacket(&p);
+        QkCore::PacketBuilder::build(&p, desc, this);
+        ack = m_qk->comm_sendPacket(&p, true);
+        if(ack.code != QK_COMM_OK)
+            return ack;
     }
+
+    return ack;
 }
 
-void QkBoard::save()
+Comm::Ack QkBoard::save()
 {
-    Qk::Packet p;
-    Qk::PacketDescriptor desc;
+    QkCore::Packet p;
+    QkCore::PacketDescriptor desc;
     desc.boardType = m_type;
     desc.address = address();
     desc.code = QK_PACKET_CODE_SAVE;
-    Qk::PacketBuilder::build(&p, desc);
-    m_qk->comm_sendPacket(&p);
+    QkCore::PacketBuilder::build(&p, desc);
+    return m_qk->comm_sendPacket(&p);
 }
 
 QkGateway::QkGateway(QkCore *qk) :
@@ -174,9 +185,41 @@ QkDevice::QkDevice(QkCore *qk, QkNode *parentNode) :
     m_type = btDevice;
 }
 
-void QkDevice::update()
+QString QkDevice::samplingModeString(SamplingMode mode)
 {
-    QkBoard::update();
+    int index = QkDevice::staticMetaObject.indexOfEnumerator("SamplingMode");
+    QMetaEnum metaEnum = QkDevice::staticMetaObject.enumerator(index);
+
+    QString str = QString(metaEnum.valueToKey(mode));
+    str = str.toLower();
+    str = str.remove(0, 2);
+    return str;
+}
+
+QString QkDevice::triggerClockString(TriggerClock clock)
+{
+    int index = QkDevice::staticMetaObject.indexOfEnumerator("TriggerClock");
+    QMetaEnum metaEnum = QkDevice::staticMetaObject.enumerator(index);
+
+    QString str = QString(metaEnum.valueToKey(clock));
+    str = str.toLower();
+    str = str.remove(0, 2);
+    return str;
+}
+
+void QkDevice::setSamplingFrequency(int freq)
+{
+    m_samplingInfo.frequency = freq;
+}
+
+void QkDevice::setSamplingMode(QkDevice::SamplingMode mode)
+{
+    m_samplingInfo.mode = mode;
+}
+
+QkCore::Comm::Ack QkDevice::update()
+{
+    return QkBoard::update();
 }
 
 void QkDevice::_setSamplingInfo(SamplingInfo info)
@@ -326,18 +369,14 @@ int QkNode::address()
 }
 
 
-QkCore::QkCore()
+QkCore::QkCore(QObject *parent) :
+    QObject(parent)
 {
     m_gateway = 0;
     m_network = 0;
     m_nodes.clear();
     m_comm.sequence = false;
     setCommTimeout(2000);
-}
-
-QkCore::~QkCore()
-{
-
 }
 
 QkGateway* QkCore::gateway()
@@ -360,47 +399,47 @@ QMap<int, QkNode*> QkCore::nodes()
     return m_nodes;
 }
 
-int QkCore::search()
+QkCore::Comm::Ack QkCore::search()
 {
-    Qk::Packet p;
-    Qk::PacketDescriptor pd;
+    QkCore::Packet p;
+    QkCore::PacketDescriptor pd;
     pd.address = 0;
     pd.code = QK_PACKET_CODE_SEARCH;
-    Qk::PacketBuilder::build(&p, pd);
+    QkCore::PacketBuilder::build(&p, pd);
     comm_sendPacket(&p);
     return _comm_wait(m_comm.defaultTimeout);
 }
 
-int QkCore::getNode(int address)
+QkCore::Comm::Ack QkCore::getNode(int address)
 {
-    Qk::Packet p;
-    Qk::PacketDescriptor pd;
+    QkCore::Packet p;
+    QkCore::PacketDescriptor pd;
     pd.address = 0;
     pd.code = QK_PACKET_CODE_GETNODE;
     pd.getnode_address = address;
-    Qk::PacketBuilder::build(&p, pd);
+    QkCore::PacketBuilder::build(&p, pd);
     comm_sendPacket(&p);
     return _comm_wait(m_comm.defaultTimeout);
 }
 
-int QkCore::start(int address)
+QkCore::Comm::Ack QkCore::start(int address)
 {
-    Qk::Packet p;
-    Qk::PacketDescriptor pd;
+    QkCore::Packet p;
+    QkCore::PacketDescriptor pd;
     pd.address = address;
     pd.code = QK_PACKET_CODE_START;
-    Qk::PacketBuilder::build(&p, pd);
+    QkCore::PacketBuilder::build(&p, pd);
     comm_sendPacket(&p);
     return _comm_wait(m_comm.defaultTimeout);
 }
 
-int QkCore::stop(int address)
+QkCore::Comm::Ack QkCore::stop(int address)
 {
-    Qk::Packet p;
-    Qk::PacketDescriptor pd;
+    QkCore::Packet p;
+    QkCore::PacketDescriptor pd;
     pd.address = address;
     pd.code = QK_PACKET_CODE_STOP;
-    Qk::PacketBuilder::build(&p, pd);
+    QkCore::PacketBuilder::build(&p, pd);
     comm_sendPacket(&p);
     return _comm_wait(m_comm.defaultTimeout);
 }
@@ -410,7 +449,7 @@ void QkCore::setCommTimeout(int timeout)
     m_comm.defaultTimeout = timeout;
 }
 
-void QkCore::comm_sendPacket(Packet *p)
+QkCore::Comm::Ack QkCore::comm_sendPacket(Packet *p, bool wait)
 {
     qDebug() << "QkCore::comm_sendPacket()" << p->codeFriendlyName();
     QByteArray frame;
@@ -431,11 +470,16 @@ void QkCore::comm_sendPacket(Packet *p)
     m_comm.ack.code = QK_COMM_NACK;
 
     emit comm_sendFrame(frame);
+
+    if(wait)
+        return _comm_wait(m_comm.defaultTimeout);
+    else
+        return m_comm.ack;
 }
 
 void QkCore::comm_processFrame(QByteArray frame)
 {
-    Qk::Packet *incomingPacket = &(m_comm.incomingPacket);
+    QkCore::Packet *incomingPacket = &(m_comm.incomingPacket);
     _comm_parseFrame(frame, incomingPacket);
 
     if(incomingPacket->flag_fragment)
@@ -455,7 +499,7 @@ void QkCore::comm_processFrame(QByteArray frame)
 
 void QkCore::_comm_parseFrame(QByteArray frame, Packet *packet)
 {
-    Qk::PacketBuilder::parse(frame, packet);
+    QkCore::PacketBuilder::parse(frame, packet);
 }
 
 void QkCore::_comm_processPacket(Packet *p)
@@ -468,6 +512,8 @@ void QkCore::_comm_processPacket(Packet *p)
     QkDevice *selDevice = 0;
 
     using namespace QkUtils;
+
+    QMutexLocker locker(&m_mutex);
 
     switch(p->source())
     {
@@ -523,7 +569,7 @@ void QkCore::_comm_processPacket(Packet *p)
     double min = 0.0, max = 0.0;
     float dataValue;
     QString debugStr;
-    Qk::Info qkInfo;
+    QkCore::Info qkInfo;
     QVector<QkBoard::Config> configs;
     QkBoard::Config::Type configType;
     QVector<QkDevice::Data> data;
@@ -746,14 +792,23 @@ void QkCore::_comm_processPacket(Packet *p)
     default: ;
     }
 
+    switch(p->code)
+    {
+    case QK_PACKET_CODE_SEQBEGIN:
+    case QK_PACKET_CODE_ERR:
+        break;
+    default:
+        emit ack(m_comm.ack);
+    }
+
     emit packetProcessed();
 
 }
 
-int QkCore::_comm_wait(int timeout)
+QkCore::Comm::Ack QkCore::_comm_wait(int timeout)
 {
     if(timeout == 0)
-        return QK_COMM_NACK;
+        return m_comm.ack;
 
     qDebug() << "_comm_wait() timeout =" << timeout;
 
@@ -771,7 +826,8 @@ int QkCore::_comm_wait(int timeout)
 
     while(!elapsedTimer.hasExpired(timeout) && m_comm.ack.code == QK_COMM_NACK)
     {
-        loop.exec(QEventLoop::ExcludeUserInputEvents);
+        loop.exec();
+        //loop.exec(QEventLoop::ExcludeUserInputEvents);
         //loop.processEvents(QEventLoop::ExcludeUserInputEvents);
     }
     loopTimer.stop();
@@ -780,10 +836,10 @@ int QkCore::_comm_wait(int timeout)
     if(elapsedTimer.hasExpired(timeout))
         error(QK_ERR_COMM_TIMEOUT, timeout);
 
-    return m_comm.ack.code;
+    return m_comm.ack;
 }
 
-bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBoard *board)
+bool QkCore::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBoard *board)
 {
     //if(!validate(pd))
         //return false;
@@ -872,7 +928,7 @@ bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBo
     return true;
 }
 
-bool Qk::PacketBuilder::validate(PacketDescriptor *pd)
+bool QkCore::PacketBuilder::validate(PacketDescriptor *pd)
 {
     bool ok = false;
 
@@ -887,7 +943,7 @@ bool Qk::PacketBuilder::validate(PacketDescriptor *pd)
     return ok;
 }
 
-void Qk::PacketBuilder::parse(const QByteArray &frame, Packet *packet)
+void QkCore::PacketBuilder::parse(const QByteArray &frame, Packet *packet)
 {
     int i_data = 0;
 
@@ -1062,16 +1118,16 @@ QString QkCore::errorMessage(int errCode)
     case QK_ERR_UNABLE_TO_SEND_MESSAGE: return tr("Unable to send message"); break;
     case QK_ERR_SAMP_OVERLAP: return tr("Sampling overlap"); break;
     default:
-        return tr("(error code unknown)"); break;
+        return tr("Error code unknown") + QString().sprintf(" (%d)",errCode); break;
     }
 }
 
-QkBoard::Type Qk::Packet::source()
+int QkCore::Packet::source()
 {
     return (QkBoard::Type) ((flags >> 4) & 0x07);
 }
 
-QString Qk::Packet::codeFriendlyName()
+QString QkCore::Packet::codeFriendlyName()
 {
     switch((quint8)code)
     {
@@ -1154,7 +1210,7 @@ int QkCore::bytesFromFloat(float value)
     return converter.i_value;
 }
 
-static void calculate_hdr_length(Qk::Packet *packet) {
+static void calculate_hdr_length(QkCore::Packet *packet) {
     int extend, frag, addr, addr16bit;
 
     extend = flag(packet->flags, QK_PACKET_FLAGMASK_EXTEND);

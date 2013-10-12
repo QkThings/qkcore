@@ -6,18 +6,23 @@
 
 QT       -= gui
 
-TARGET = Qk
+TARGET = qkcore
 TEMPLATE = lib
+INCLUDEPATH += private
+INCLUDEPATH += comm
 
 DEFINES += QKLIB_LIBRARY
 
-SOURCES += qk.cpp
+SOURCES += \
+    qkcore.cpp \
+    comm/qk_comm.cpp
 
-HEADERS += qk.h\
-        qklib_global.h \
-    qk_defs.h \
+HEADERS +=\
+    qklib_global.h \
+    private/qk_defs.h \    
+    private/qk_utils.h \
     qk_comm.h \
-    qk_utils.h
+    qkcore.h
 
 unix:!symbian {
     maemo5 {
@@ -29,12 +34,15 @@ unix:!symbian {
 }
 
 CONFIG(debug, debug|release) {
-    DESTDIR = build/debug
+    DESTDIR = debug
 } else {
-    DESTDIR = build/release
+    DESTDIR = release
 }
 
-OBJECTS_DIR = build/tmp/obj
-MOC_DIR = build/tmp/moc
-RCC_DIR = build/tmp/rcc
-UI_DIR = build/tmp/ui
+OBJECTS_DIR = build/obj
+MOC_DIR = build/moc
+RCC_DIR = build/rcc
+UI_DIR = build/ui
+
+
+

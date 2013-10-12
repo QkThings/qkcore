@@ -2,13 +2,14 @@
 #define QK_H
 
 #include "qklib_global.h"
+//#include "qk_defs.h"
 #include "qk_comm.h"
-#include "qk_defs.h"
 
+#include <QDebug>
 #include <QObject>
 #include <QVector>
 #include <QVariant>
-#include <QDebug>
+#include <QMutex>
 
 namespace Qk
 {
@@ -48,6 +49,49 @@ public:
     int baudRate;
     int flags;
     QString versionString();
+};
+
+class QKLIBSHARED_EXPORT Qk::Packet
+{
+public:
+    int address;
+    int flags;
+    int code;
+    QByteArray data;
+    int checksum;
+    int headerLength;
+
+    bool flag_extend;
+    bool flag_fragment;
+    bool flag_lastFragment;
+    bool flag_address;
+    bool flag_16bitaddr;
+
+    QString codeFriendlyName();
+    int source();
+};
+
+class Qk::Comm
+{
+public:
+    class Ack {
+    public:
+        int code;
+        int arg;
+        int err;
+    };
+    int defaultTimeout;
+    bool sequence;
+    Qk::Packet fragmentedPacket;
+    Qk::Packet incomingPacket;
+    Ack ack;
+};
+
+class QKLIBSHARED_EXPORT Qk::PacketBuilder {
+public:
+    static bool build(Packet *packet, const PacketDescriptor &desc, QkBoard *board = 0);
+    static bool validate(PacketDescriptor *pd);
+    static void parse(const QByteArray &frame, Packet *packet);
 };
 
 class QKLIBSHARED_EXPORT QkBoard : public QObject
@@ -92,8 +136,8 @@ public:
     void _setQkInfo(const Qk::Info &qkInfo);
     void _setConfigs(QVector<Config> configs);
     void setConfigValue(int idx, QVariant value);
-    void save();
-    void update();
+    Comm::Ack save();
+    Comm::Ack update();
 
     int address();
     QString name();
@@ -145,6 +189,7 @@ private:
 class QKLIBSHARED_EXPORT QkDevice : public QkBoard
 {
     Q_OBJECT
+    Q_ENUMS(SamplingMode TriggerClock)
 public:
     enum SamplingMode
     {
@@ -225,13 +270,16 @@ public:
 
     QkDevice(QkCore *qk, QkNode *parentNode);
 
-    static SamplingMode getSamplingModeEnum(const QString &name);
-    static TriggerClock getTriggerClockEnum(const QString &name);
+    //static SamplingMode samplingModeEnum(const QString &name);
+    //static TriggerClock triggerClockEnum(const QString &name);
+    static QString samplingModeString(SamplingMode mode);
+    static QString triggerClockString(TriggerClock clock);
 
-    void update();
+    Comm::Ack update();
 
     void setSamplingInfo(const SamplingInfo &info);
     void setSamplingFrequency(int freq);
+    void setSamplingMode(QkDevice::SamplingMode mode);
     void _setSamplingInfo(SamplingInfo info);
     void _setData(QVector<Data> data);
     void _setDataType(Data::Type type);
@@ -275,58 +323,13 @@ private:
     QkDevice *m_device;
 };
 
-class QKLIBSHARED_EXPORT Qk::Packet
-{
-public:
-    int address;
-    int flags;
-    int code;
-    QByteArray data;
-    int checksum;
-    int headerLength;
-
-    bool flag_extend;
-    bool flag_fragment;
-    bool flag_lastFragment;
-    bool flag_address;
-    bool flag_16bitaddr;
-
-    QString codeFriendlyName();
-    QkBoard::Type source();
-};
-
-class Qk::Comm
-{
-public:
-    class Ack {
-    public:
-        int code;
-        int arg;
-        int err;
-    };
-    int defaultTimeout;
-    bool sequence;
-    Qk::Packet fragmentedPacket;
-    Qk::Packet incomingPacket;
-    Ack ack;
-};
-
-
-class QKLIBSHARED_EXPORT Qk::PacketBuilder {
-public:
-    static bool build(Packet *packet, const PacketDescriptor &desc, QkBoard *board = 0);
-    static bool validate(PacketDescriptor *pd);
-    static void parse(const QByteArray &frame, Packet *packet);
-};
-
 
 class QKLIBSHARED_EXPORT QkCore : public QObject
 {
     Q_OBJECT
 public:
 
-    QkCore();
-    ~QkCore();
+    QkCore(QObject *parent = 0);
 
     static QString version();
     static QString errorMessage(int errCode);
@@ -350,7 +353,7 @@ public:
 
     void setCommTimeout(int timeout);
 
-    void comm_sendPacket(Packet *p);
+    Comm::Ack comm_sendPacket(Packet *p, bool wait = false);
 
 signals:
     void comm_sendFrame(QByteArray frame);
@@ -365,13 +368,14 @@ signals:
     void eventReceived(int address, QkDevice::Event e);
     void debugString(int address, QString str);
     void error(int errCode, int errArg);
+    void ack(Qk::Comm::Ack ack);
 
 public slots:
     /**** API ***************************************/
-    int search();
-    int getNode(int address = 0);
-    int start(int address = 0);
-    int stop(int address = 0);
+    Comm::Ack search();
+    Comm::Ack getNode(int address = 0);
+    Comm::Ack start(int address = 0);
+    Comm::Ack stop(int address = 0);
     /************************************************/
     void comm_processFrame(QByteArray frame);
 
@@ -382,12 +386,13 @@ private:
     };
     void _comm_parseFrame(QByteArray frame, Qk::Packet *packet);
     void _comm_processPacket(Packet *p);
-    int _comm_wait(int timeout);
+    Comm::Ack _comm_wait(int timeout);
 
     QkGateway *m_gateway;
     QkNetwork *m_network;
     QMap<int, QkNode*> m_nodes;
     Qk::Comm m_comm;
+    QMutex m_mutex;
 };
 
 #endif // QK_H

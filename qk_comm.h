@@ -90,16 +90,17 @@ namespace Qk {
 #define QK_PACKET_FLAGMASK_ADDRESS    0x0001
 #define QK_PACKET_FLAGMASK_DEST       0x0700
 /******************************************************************************/
-typedef enum qk_error {
-  QK_ERR_CODE_UNKNOWN,
-  QK_ERR_UNSUPPORTED_OPERATION,
-  QK_ERR_INVALID_BOARD,
-  QK_ERR_INVALID_DATA_OR_ARG,
-  QK_ERR_BOARD_NOT_CONNECTED,
-  QK_ERR_INVALID_SAMP_FREQ,
-  QK_ERR_COMM_TIMEOUT,
-  QK_ERR_UNABLE_TO_SEND_MESSAGE,
-  QK_ERR_SAMP_OVERLAP
+typedef enum qk_error
+{
+    QK_ERR_COMM_TIMEOUT = 0,
+    QK_ERR_CODE_UNKNOWN = 255,
+    QK_ERR_UNABLE_TO_SEND_MESSAGE,
+    QK_ERR_UNSUPPORTED_OPERATION,
+    QK_ERR_INVALID_BOARD,
+    QK_ERR_INVALID_DATA_OR_ARG,
+    QK_ERR_BOARD_NOT_CONNECTED,
+    QK_ERR_INVALID_SAMP_FREQ,
+    QK_ERR_SAMP_OVERLAP
 } qk_error_t;
 /******************************************************************************/
 #define QK_PACKET_CODE_SIZE         1
