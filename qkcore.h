@@ -2,7 +2,7 @@
 #define QK_H
 
 #include "qklib_global.h"
-//#include "qk_defs.h"
+#include "qk_defs.h"
 #include "qk_comm.h"
 
 #include <QDebug>
@@ -55,17 +55,20 @@ class QKLIBSHARED_EXPORT Qk::Packet
 {
 public:
     int address;
-    int flags;
+    struct {
+     int ctrl;
+     int network;
+    } flags;
     int code;
     QByteArray data;
     int checksum;
     int headerLength;
 
-    bool flag_extend;
+    /*bool flag_extend;
     bool flag_fragment;
     bool flag_lastFragment;
     bool flag_address;
-    bool flag_16bitaddr;
+    bool flag_16bitaddr;*/
 
     QString codeFriendlyName();
     int source();

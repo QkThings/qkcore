@@ -1,5 +1,13 @@
 build/
 *Makefile*
+
 *.pro.user*
+
 *.*~
+
 *.autosave
+
+release/
+debug/
+*.dll
+*.a
