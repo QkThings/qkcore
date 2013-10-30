@@ -454,15 +454,11 @@ Qk::Comm::Ack QkCore::comm_sendPacket(Packet *p, bool wait)
     qDebug() << "QkCore::comm_sendPacket()" << p->codeFriendlyName();
     QByteArray frame;
 
-    if(p->address != 0) {
-        p->flags.ctrl |= QK_PACKET_FLAGMASK_ADDRESS;
-        p->flags.ctrl |= QK_PACKET_FLAGMASK_16BITADDR;
-    }
-
     frame.append(p->flags.ctrl & 0xFF);
-    if(p->flags.ctrl & QK_PACKET_FLAGMASK_EXTEND) {
+    frame.append((p->flags.ctrl >> 8) & 0xFF);
+    /*if(p->flags.ctrl & QK_PACKET_FLAGMASK_EXTEND) {
         frame.append(p->flags.ctrl >> 8);
-    }
+    }*/
 
     frame.append(p->code);
     frame.append(p->data);
@@ -482,11 +478,11 @@ void QkCore::comm_processFrame(QByteArray frame)
     Qk::Packet *incomingPacket = &(m_comm.incomingPacket);
     _comm_parseFrame(frame, incomingPacket);
 
-    if(incomingPacket->flags.ctrl & QK_PACKET_FLAGMASK_FRAG)
+    if(incomingPacket->flags.ctrl & QK_PACKET_FLAGMASK_CTRL_FRAG)
     {
         m_comm.fragmentedPacket.data.append(incomingPacket->data);
 
-        if(!(incomingPacket->flags.ctrl & QK_PACKET_FLAGMASK_LASTFRAG)) //FIXME create elapsedTimer to timeout lastFragment reception
+        if(!(incomingPacket->flags.ctrl & QK_PACKET_FLAGMASK_CTRL_LASTFRAG)) //FIXME create elapsedTimer to timeout lastFragment reception
             return;
         else
         {
@@ -745,10 +741,13 @@ void QkCore::_comm_processPacket(Packet *p)
     case QK_PACKET_CODE_ERR:
         break;
     default:
-        if(!m_comm.sequence && m_comm.ack.err != QK_ERR_CODE_UNKNOWN)
+        if(!(p->flags.ctrl & QK_PACKET_FLAGMASK_CTRL_NOTIF))
         {
-            m_comm.ack.code = QK_COMM_ACK;
-            m_comm.ack.arg = p->code;
+            if(!m_comm.sequence && m_comm.ack.err != QK_ERR_CODE_UNKNOWN)
+            {
+                m_comm.ack.code = QK_COMM_ACK;
+                m_comm.ack.arg = p->code;
+            }
         }
     }
 

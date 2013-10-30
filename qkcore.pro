@@ -19,7 +19,7 @@ SOURCES += \
 
 HEADERS +=\
     qklib_global.h \
-    private/qk_defs.h \    
+    qk_defs.h \
     private/qk_utils.h \
     qk_comm.h \
     qkcore.h
