@@ -5,6 +5,3 @@ debug/
 *.pro.user*
 *.*~
 *.autosave
-*.dll
-*.a
-.autosave
