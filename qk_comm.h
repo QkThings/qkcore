@@ -82,13 +82,6 @@ namespace Qk {
 #define QK_PACKET_CODE_EVENT            0xDE
 #define QK_PACKET_CODE_STRING           0xDF
 
-/*#define QK_PACKET_FLAGMASK_EXTEND     0x0080
-#define QK_PACKET_FLAGMASK_SRC        0x0070
-#define QK_PACKET_FLAGMASK_FRAG       0x0008
-#define QK_PACKET_FLAGMASK_LASTFRAG   0x0004
-#define QK_PACKET_FLAGMASK_16BITADDR  0x0002
-#define QK_PACKET_FLAGMASK_ADDRESS    0x0001
-#define QK_PACKET_FLAGMASK_DEST       0x0700*/
 /******************************************************************************/
 typedef enum qk_error
 {

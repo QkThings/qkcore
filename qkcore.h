@@ -22,12 +22,18 @@ namespace Qk
 
 namespace QkUtils
 {
+    union _IntFloatConverter {
+        float f_value;
+        int i_value;
+    };
     void fillValue(int value, int count, int *idx, QByteArray &data);
     void fillString(const QString &str, int count, int *idx, QByteArray &data);
     void fillString(const QString &str, int *idx, QByteArray &data);
     int getValue(int count, int *idx, const QByteArray &data, bool sigExt = false);
     QString getString(int *idx, const QByteArray &data);
     QString getString(int count, int *idx, const QByteArray &data);
+    float floatFromBytes(int value);
+    int bytesFromFloat(float value);
 }
 
 using namespace Qk;
@@ -196,12 +202,12 @@ class QKLIBSHARED_EXPORT QkDevice : public QkBoard
 public:
     enum SamplingMode
     {
+        smSingle,
         smContinuous,
         smTriggered
     };
     enum TriggerClock
     {
-        tcSingle,
         tc1Sec,
         tc10Sec,
         tc1Min,
@@ -336,8 +342,8 @@ public:
 
     static QString version();
     static QString errorMessage(int errCode);
-    static float floatFromBytes(int value);
-    static int bytesFromFloat(float value);
+    //static float floatFromBytes(int value);
+    //static int bytesFromFloat(float value);
 
     /**** API ***************************************/
     QkNode* node(int address = 0);
@@ -383,10 +389,6 @@ public slots:
     void comm_processFrame(QByteArray frame);
 
 private:
-    union _IntFloatConverter {
-        float f_value;
-        int i_value;
-    };
     void _comm_parseFrame(QByteArray frame, Qk::Packet *packet);
     void _comm_processPacket(Packet *p);
     Comm::Ack _comm_wait(int timeout);

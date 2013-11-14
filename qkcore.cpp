@@ -580,6 +580,8 @@ void QkCore::_comm_processPacket(Packet *p)
     QList<float> eventArgs;
     float eventArg;
 
+    float iValue,fValue;
+
     int i_data = 0;
     switch(p->code)
     {
@@ -624,7 +626,7 @@ void QkCore::_comm_processPacket(Packet *p)
                 max = (double) getValue(4, &i_data, p->data, true);
                 break;
             case QkBoard::Config::ctFloat:
-                varValue = QVariant((float) getValue(4, &i_data, p->data, true));
+                varValue = QVariant(QkUtils::floatFromBytes(getValue(4, &i_data, p->data, true)));
                 min = (double) getValue(4, &i_data, p->data, true);
                 max = (double) getValue(4, &i_data, p->data, true);
                 break;
@@ -892,20 +894,27 @@ bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBo
             fillValue(configValue.toInt(), 4, &i_data, packet->data);
             break;
         case QkBoard::Config::ctFloat:
-            fillValue(configValue.toInt(), 4, &i_data, packet->data); //FIXME ? use bytesFromFloat?
+            fillValue(QkUtils::bytesFromFloat(configValue.toFloat()), 4, &i_data, packet->data);
             break;
         case QkBoard::Config::ctDateTime:
             fillValue(configValue.toDateTime().date().year()-2000, 1, &i_data, packet->data);
             fillValue(configValue.toDateTime().date().month(), 1, &i_data, packet->data);
             fillValue(configValue.toDateTime().date().day(), 1, &i_data, packet->data);
-        case QkBoard::Config::ctTime:
             fillValue(configValue.toDateTime().time().hour(), 1, &i_data, packet->data);
             fillValue(configValue.toDateTime().time().minute(), 1, &i_data, packet->data);
             fillValue(configValue.toDateTime().time().second(), 1, &i_data, packet->data);
             break;
-        case QkBoard::Config::ctCombo:
+        case QkBoard::Config::ctTime:
+            qDebug() << configValue;
+            fillValue(configValue.toTime().hour(), 1, &i_data, packet->data);
+            fillValue(configValue.toTime().minute(), 1, &i_data, packet->data);
+            fillValue(configValue.toTime().second(), 1, &i_data, packet->data);
             break;
-        default: ;
+        case QkBoard::Config::ctCombo:
+            qDebug() << "Config::ctCombo <-- TODO";
+            break;
+        default:
+            qDebug() << "WARNING: Unkown config type" << __LINE__ << __FILE__;
         }
         break;
     case QK_PACKET_CODE_SETSAMP:
@@ -1191,16 +1200,16 @@ QString Qk::Packet::codeFriendlyName()
     }
 }
 
-float QkCore::floatFromBytes(int value)
+float QkUtils::floatFromBytes(int value)
 {
-    _IntFloatConverter converter;
+    QkUtils::_IntFloatConverter converter;
     converter.i_value = value;
     return converter.f_value;
 }
 
-int QkCore::bytesFromFloat(float value)
+int QkUtils::bytesFromFloat(float value)
 {
-    _IntFloatConverter converter;
+    QkUtils::_IntFloatConverter converter;
     converter.f_value = value;
     return converter.i_value;
 }
