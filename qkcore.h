@@ -314,6 +314,8 @@ private:
 
 };
 
+Q_DECLARE_METATYPE(QkDevice::Event)
+
 class QKLIBSHARED_EXPORT QkNode
 {
 public:

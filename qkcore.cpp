@@ -178,11 +178,15 @@ QkModule::QkModule(QkCore *qk, QkNode *parentNode) :
     m_type = btModule;
 }
 
+
+
 QkDevice::QkDevice(QkCore *qk, QkNode *parentNode) :
     QkBoard(qk)
 {
     m_parentNode = parentNode;
     m_type = btDevice;
+
+    qRegisterMetaType<QkDevice::Event>();
 }
 
 QString QkDevice::samplingModeString(SamplingMode mode)
@@ -1228,4 +1232,6 @@ static void calculate_hdr_length(Qk::Packet *packet)
       packet->headerLength += SIZE_FLAGS_NETWORK;
     }
 }
+
+
 
