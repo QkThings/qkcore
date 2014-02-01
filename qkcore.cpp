@@ -504,7 +504,7 @@ void QkCore::_comm_parseFrame(QByteArray frame, Packet *packet)
 
 void QkCore::_comm_processPacket(Packet *p)
 {
-    qDebug() << "QkCore::_comm_processPacket()" << p->codeFriendlyName();
+    //qDebug() << "QkCore::_comm_processPacket()" << p->codeFriendlyName();
 
     QkBoard *selBoard = 0;
     QkNode *selNode = 0;
