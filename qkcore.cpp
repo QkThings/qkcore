@@ -26,6 +26,17 @@ QString Qk::Info::versionString()
 QkBoard::QkBoard(QkCore *qk)
 {
     m_qk = qk;
+    m_name = tr("<unknown>");
+    m_fwVersion = 0;
+    m_filledInfoMask = 0;
+}
+
+void QkBoard::_setInfoMask(int mask, bool overwrite)
+{
+    if(overwrite)
+        m_filledInfoMask = mask;
+    else
+        m_filledInfoMask |= mask;
 }
 
 void QkBoard::_setFirmwareVersion(int version)
@@ -185,6 +196,9 @@ QkDevice::QkDevice(QkCore *qk, QkNode *parentNode) :
 {
     m_parentNode = parentNode;
     m_type = btDevice;
+    m_events.clear();
+    m_data.clear();
+    m_actions.clear();
 
     qRegisterMetaType<QkDevice::Event>();
 }
@@ -243,10 +257,22 @@ void QkDevice::_setDataType(Data::Type type)
 
 void QkDevice::_setDataValue(int idx, float value)
 {
-    if(idx < 0 || idx > m_data.count())
-        return;
-
+    if(idx < 0 || idx > m_data.size())
+    {
+        qWarning() << __FUNCTION__ << "data index out of bounds";
+        m_data.resize(idx+1);
+    }
     m_data[idx]._setValue(value);
+}
+
+void QkDevice::_setDataLabel(int idx, const QString &label)
+{
+    if(idx < 0 || idx > m_data.size())
+    {
+        qWarning() << __FUNCTION__ << "data index out of bounds";
+        m_data.resize(idx+1);
+    }
+    m_data[idx]._setLabel(label);
 }
 
 void QkDevice::_setActions(QVector<Action> actions)
@@ -378,6 +404,7 @@ QkCore::QkCore(QObject *parent) :
 {
     m_gateway = 0;
     m_network = 0;
+    m_running = false;
     m_nodes.clear();
     m_comm.sequence = false;
     setCommTimeout(2000);
@@ -434,6 +461,7 @@ Qk::Comm::Ack QkCore::start(int address)
     pd.code = QK_PACKET_CODE_START;
     Qk::PacketBuilder::build(&p, pd);
     comm_sendPacket(&p);
+    m_running = true; //TODO check ack
     return _comm_wait(m_comm.defaultTimeout);
 }
 
@@ -445,7 +473,13 @@ Qk::Comm::Ack QkCore::stop(int address)
     pd.code = QK_PACKET_CODE_STOP;
     Qk::PacketBuilder::build(&p, pd);
     comm_sendPacket(&p);
+    m_running = false; //TODO check ack
     return _comm_wait(m_comm.defaultTimeout);
+}
+
+bool QkCore::isRunning()
+{
+    return m_running;
 }
 
 void QkCore::setCommTimeout(int timeout)
@@ -504,12 +538,13 @@ void QkCore::_comm_parseFrame(QByteArray frame, Packet *packet)
 
 void QkCore::_comm_processPacket(Packet *p)
 {
-    //qDebug() << "QkCore::_comm_processPacket()" << p->codeFriendlyName();
+    qDebug() << __FUNCTION__ << "addr =" << p->address << "code =" << p->codeFriendlyName();
 
     QkBoard *selBoard = 0;
     QkNode *selNode = 0;
     QkModule *selModule = 0;
     QkDevice *selDevice = 0;
+    bool boardCreated = false;
 
     using namespace QkUtils;
 
@@ -519,7 +554,10 @@ void QkCore::_comm_processPacket(Packet *p)
     {
     case QkBoard::btGateway:
         if(m_gateway == 0)
+        {
             m_gateway = new QkGateway(this);
+            boardCreated = true;
+        }
         selBoard = m_gateway;
         break;
     case QkBoard::btNetwork:
@@ -537,6 +575,7 @@ void QkCore::_comm_processPacket(Packet *p)
         if(selNode->module() == 0)
         {
             selNode->setModule(new QkModule(this, selNode));
+            boardCreated = true;
         }
         selBoard = selNode->module();
         break;
@@ -551,17 +590,41 @@ void QkCore::_comm_processPacket(Packet *p)
         {
             selDevice = new QkDevice(this, selNode);
             selNode->setDevice(selDevice);
+            boardCreated = true;
         }
         selDevice = selNode->device();
         selBoard = (QkBoard*)(selDevice);
         break;
-    default: ;
+    default:
+        qWarning() << __FUNCTION__ << "unkown packet source";
     }
 
     if(selBoard == 0)
     {
-        qDebug() << "ERROR: selBoard == 0";
+        qWarning() << __FUNCTION__ << "selBoard == 0";
         return;
+    }
+
+    switch(p->code)
+    {
+    case QK_PACKET_CODE_DATA:
+    case QK_PACKET_CODE_EVENT:
+    case QK_PACKET_CODE_STRING:
+    case QK_PACKET_CODE_OK:
+    case QK_PACKET_CODE_ERR:
+        if(boardCreated)
+        {
+            switch(p->source())
+            {
+            case QkBoard::btDevice:
+                emit deviceFound(p->address);
+                break;
+            default:
+                qDebug() << "source?";
+            }
+        }
+        break;
+    default:;
     }
 
     int i, j, size, fwVersion, ncfg, ndat, nact, nevt, eventID, nargs;
@@ -583,8 +646,9 @@ void QkCore::_comm_processPacket(Packet *p)
     QkDevice::SamplingInfo sampInfo;
     QList<float> eventArgs;
     float eventArg;
-
-    float iValue,fValue;
+    bool bufferJustCreated = false;
+    bool infoChangedEmit = false;
+    int infoChangedMask = 0;
 
     int i_data = 0;
     switch(p->code)
@@ -604,12 +668,14 @@ void QkCore::_comm_processPacket(Packet *p)
         qkInfo.baudRate = getValue(4, &i_data, p->data);
         qkInfo.flags = getValue(4, &i_data, p->data);
         selBoard->_setQkInfo(qkInfo);
+        selBoard->_setInfoMask((int)QkBoard::biQk);
         break;
     case QK_PACKET_CODE_INFOBOARD:
         fwVersion = getValue(2, &i_data, p->data);
         name = getString(QK_BOARD_NAME_SIZE, &i_data, p->data);
         selBoard->_setFirmwareVersion(fwVersion);
         selBoard->_setName(name);
+        selBoard->_setInfoMask((int)QkBoard::biBoard);
         break;
     case QK_PACKET_CODE_INFOCONFIG:
         ncfg = getValue(1, &i_data, p->data);
@@ -664,6 +730,7 @@ void QkCore::_comm_processPacket(Packet *p)
             configs[i]._set(label, configType, varValue, min, max);
         }
         selBoard->_setConfigs(configs);
+        selBoard->_setInfoMask((int)QkBoard::biConfig);
         break;
     case QK_PACKET_CODE_INFOSAMP:
         sampInfo.frequency = getValue(4, &i_data, p->data);
@@ -672,17 +739,21 @@ void QkCore::_comm_processPacket(Packet *p)
         sampInfo.triggerScaler = getValue(1, &i_data, p->data);
         sampInfo.N = getValue(4, &i_data, p->data);
         selDevice->_setSamplingInfo(sampInfo);
+        selDevice->_setInfoMask((int)QkDevice::diSampling);
         break;
     case QK_PACKET_CODE_INFODATA:
         ndat = getValue(1, &i_data, p->data);
         data = QVector<QkDevice::Data>(ndat);
         dataType = (QkDevice::Data::Type)getValue(1, &i_data, p->data);
+        qDebug() << "ndat =" << ndat;
         for(i=0; i<ndat; i++)
         {
             data[i]._setLabel(getString(QK_LABEL_SIZE, &i_data, p->data));
+            qDebug() << QString().sprintf("data[%d]=%s",i,data[i].label().toStdString().data());
         }
         selDevice->_setDataType(dataType);
         selDevice->_setData(data);
+        selDevice->_setInfoMask((int)QkDevice::diData);
         break;
     case QK_PACKET_CODE_INFOEVENT:
         nevt = getValue(1, &i_data, p->data);
@@ -692,12 +763,23 @@ void QkCore::_comm_processPacket(Packet *p)
             events[i]._setLabel(getString(QK_LABEL_SIZE, &i_data, p->data));
         }
         selDevice->_setEvents(events);
+        selDevice->_setInfoMask((int)QkDevice::diEvent);
         break;
     case QK_PACKET_CODE_INFOACTION:
         break;
     case QK_PACKET_CODE_DATA:
         ndat = getValue(1, &i_data, p->data);
         dataType = (QkDevice::Data::Type)getValue(1, &i_data, p->data);
+        if(selDevice->data().size() != ndat)
+        {
+            qWarning() << __FUNCTION__ << "data count doesn't match buffer size";
+            data.resize(ndat);
+            selDevice->_setData(data);
+            selDevice->_setDataType(dataType);
+            bufferJustCreated = true;
+            infoChangedEmit = true;
+            infoChangedMask |= (int)QkDevice::diData;
+        }
         for(i=0; i<ndat; i++)
         {
             if(dataType == QkDevice::Data::dtInt)
@@ -705,10 +787,23 @@ void QkCore::_comm_processPacket(Packet *p)
             else
                 dataValue = floatFromBytes(getValue(4, &i_data, p->data, true));
             selDevice->_setDataValue(i, dataValue);
+            if(bufferJustCreated)
+                selDevice->_setDataLabel(i, QString().sprintf("D%d",i));
         }
         break;
     case QK_PACKET_CODE_EVENT:
         eventID = getValue(1, &i_data, p->data);
+        if(eventID >= selDevice->events().size())
+        {
+            qWarning() << __FUNCTION__ << "event id greater than buffer capacity";
+            events.resize(eventID+1);
+            for(i=0; i < events.count(); i++)
+                events[i]._setLabel(QString().sprintf("E%d",i));
+            selDevice->_setEvents(events);
+            bufferJustCreated = true;
+            infoChangedEmit = true;
+            infoChangedMask |= (int)QkDevice::diEvent;
+        }
         firedEvent._setLabel(selDevice->events()[eventID].label());
         nargs = getValue(1, &i_data, p->data);
         eventArgs.clear();
@@ -736,7 +831,7 @@ void QkCore::_comm_processPacket(Packet *p)
         m_comm.ack.code = QK_COMM_ERR;
         m_comm.ack.err = QK_ERR_CODE_UNKNOWN;
         m_comm.ack.arg = p->code;
-        //qDebug() << "Packet code not recognized:" << QString().sprintf("%02X", p->code);
+        qWarning() << __FUNCTION__ << "packet code not recognized" << QString().sprintf("(%02X)", p->code);
     }
 
     switch(p->code)
@@ -756,6 +851,9 @@ void QkCore::_comm_processPacket(Packet *p)
             }
         }
     }
+
+    if(infoChangedEmit)
+        emit infoChanged(p->address, (QkBoard::Type)p->source(), infoChangedMask);
 
     switch(p->code)
     {
@@ -807,7 +905,6 @@ void QkCore::_comm_processPacket(Packet *p)
     }
 
     emit packetProcessed();
-
 }
 
 Qk::Comm::Ack QkCore::_comm_wait(int timeout)

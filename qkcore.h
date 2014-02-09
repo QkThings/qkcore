@@ -49,6 +49,15 @@ class QkModule;
 class QKLIBSHARED_EXPORT Qk::Info
 {
 public:
+    Info()
+    {
+        version_major = 0;
+        version_minor = 0;
+        version_patch = 0;
+        baudRate = 0;
+        flags = 0;
+    }
+
     int version_major;
     int version_minor;
     int version_patch;
@@ -114,6 +123,13 @@ public:
         btNetwork,
         btGateway
     };
+    enum Info
+    {
+        biQk = (1<<0),
+        biBoard = (1<<1),
+        biConfig = (1<<2)
+    };
+
     class QKLIBSHARED_EXPORT Config
     {
     public:
@@ -140,6 +156,8 @@ public:
 
     QkBoard(QkCore *qk);
 
+    void _setInfoMask(int mask, bool overwrite = false);
+
     void _setName(const QString &name);
     void _setFirmwareVersion(int version);
     void _setQkInfo(const Qk::Info &qkInfo);
@@ -163,6 +181,7 @@ private:
     int m_fwVersion;
     Qk::Info m_qkInfo;
     QVector<Config> m_configs;
+    int m_filledInfoMask;
 };
 
 class QkGateway : public QkBoard {
@@ -200,6 +219,13 @@ class QKLIBSHARED_EXPORT QkDevice : public QkBoard
     Q_OBJECT
     Q_ENUMS(SamplingMode TriggerClock)
 public:
+    enum Info
+    {
+        diSampling = ((1<<0) << 3),
+        diData = ((1<<1) << 3),
+        diEvent = ((1<<2) << 3),
+        diAction = ((1<<3) << 3)
+    };
     enum SamplingMode
     {
         smSingle,
@@ -217,6 +243,14 @@ public:
     class SamplingInfo
     {
     public:
+        SamplingInfo()
+        {
+            mode = smContinuous;
+            frequency = 1;
+            triggerClock = tc10Sec;
+            triggerScaler = 1;
+            N = 5;
+        }
         SamplingMode mode;
         int frequency;
         TriggerClock triggerClock;
@@ -293,6 +327,7 @@ public:
     void _setData(QVector<Data> data);
     void _setDataType(Data::Type type);
     void _setDataValue(int idx, float value);
+    void _setDataLabel(int idx, const QString &label);
     void _setActions(QVector<Action> actions);
     void _setEvents(QVector<Event> events);
 
@@ -362,6 +397,8 @@ public:
     void _saveNetwork();
     void _saveGateway();
 
+    bool isRunning();
+
     void setCommTimeout(int timeout);
 
     Comm::Ack comm_sendPacket(Packet *p, bool wait = false);
@@ -374,6 +411,8 @@ signals:
     void moduleFound(int address);
     void deviceFound(int address);
     void deviceUpdated(int address);
+
+    void infoChanged(int address, QkBoard::Type boardType, int mask);
 
     void dataReceived(int address);
     void eventReceived(int address, QkDevice::Event e);
@@ -395,6 +434,7 @@ private:
     void _comm_processPacket(Packet *p);
     Comm::Ack _comm_wait(int timeout);
 
+    bool m_running;
     QkGateway *m_gateway;
     QkNetwork *m_network;
     QMap<int, QkNode*> m_nodes;
