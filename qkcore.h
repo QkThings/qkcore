@@ -163,6 +163,7 @@ public:
     void _setQkInfo(const Qk::Info &qkInfo);
     void _setConfigs(QVector<Config> configs);
     void setConfigValue(int idx, QVariant value);
+    //Comm::Ack configure(int id, QVariant value);
     Comm::Ack save();
     Comm::Ack update();
 
@@ -274,27 +275,27 @@ public:
         QString m_label;
         float m_value;
     };
-    enum ActionType {
-        atBool,
-        atNumber,
-        atText
-    };
+
     class QKLIBSHARED_EXPORT Action {
     public:
-        Action(const QString &label = QString());
+        enum Type {
+            atBool,
+            atInt,
+            atText
+        };
+        void _setId(int id);
         void _setLabel(const QString &label);
-        void _setType(ActionType type);
-        void _setArgs(QList<float> args);
-        void _setMessage(const QString &msg);
+        void _setType(Type type);
+        void _setValue(QVariant value);
+        int id();
         QString label();
-        ActionType type();
-        QList<float> args();
-        QString text();
+        Type type();
+        QVariant value();
     private:
+        int m_id;
         QString m_label;
-        ActionType m_type;
-        QList<float> m_args;
-        QString  m_text;
+        Type m_type;
+        QVariant m_value;
     };
 
     class QKLIBSHARED_EXPORT Event {
@@ -336,6 +337,8 @@ public:
     QVector<Data> data();
     QVector<Action> actions();
     QVector<Event> events();
+
+    int actuate(unsigned int id, QVariant value);
 
 protected:
     void setup();

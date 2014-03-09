@@ -15,6 +15,7 @@ namespace Qk {
         QString setname_str;
         int getnode_address;
         int setconfig_idx;
+        int action_id;
     };
 }
 
