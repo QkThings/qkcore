@@ -10,6 +10,7 @@
 #include <QVector>
 #include <QVariant>
 #include <QMutex>
+#include <QQueue>
 
 namespace Qk
 {
@@ -98,7 +99,7 @@ public:
         int arg;
         int err;
     };
-    int defaultTimeout;
+    int timeout;
     bool sequence;
     Qk::Packet fragmentedPacket;
     Qk::Packet incomingPacket;
@@ -406,8 +407,11 @@ public:
 
     Comm::Ack comm_sendPacket(Packet *p, bool wait = false);
 
+    QQueue<QByteArray>* framesToSend();
+
 signals:
-    void comm_sendFrame(QByteArray frame);
+    void comm_sendFrame(QByteArray frame); //TODO obsolete (use queue instead)
+    void comm_frameReady();
     void packetProcessed();
     void gatewayFound();
     void networkFound();
@@ -418,7 +422,7 @@ signals:
     void infoChanged(int address, QkBoard::Type boardType, int mask);
 
     void dataReceived(int address);
-    void eventReceived(int address, QkDevice::Event e);
+    void eventReceived(int address, QkDevice::Event e); //TODO obsolete (use queue instead)
     void debugString(int address, QString str);
     void error(int errCode, int errArg);
     void ack(Qk::Comm::Ack ack);
@@ -443,6 +447,8 @@ private:
     QMap<int, QkNode*> m_nodes;
     Qk::Comm m_comm;
     QMutex m_mutex;
+
+    QQueue<QByteArray> m_framesToSend;
 };
 
 #endif // QK_H

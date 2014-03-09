@@ -11,6 +11,7 @@
 #include <QTime>
 #include <QDate>
 #include <QMetaEnum>
+#include <QQueue>
 
 using namespace std;
 
@@ -499,8 +500,7 @@ Qk::Comm::Ack QkCore::search()
     pd.address = 0;
     pd.code = QK_PACKET_CODE_SEARCH;
     Qk::PacketBuilder::build(&p, pd);
-    comm_sendPacket(&p);
-    return _comm_wait(m_comm.defaultTimeout);
+    return comm_sendPacket(&p, true);
 }
 
 Qk::Comm::Ack QkCore::getNode(int address)
@@ -511,8 +511,7 @@ Qk::Comm::Ack QkCore::getNode(int address)
     pd.code = QK_PACKET_CODE_GETNODE;
     pd.getnode_address = address;
     Qk::PacketBuilder::build(&p, pd);
-    comm_sendPacket(&p);
-    return _comm_wait(m_comm.defaultTimeout);
+    return comm_sendPacket(&p, true);
 }
 
 Qk::Comm::Ack QkCore::start(int address)
@@ -522,9 +521,10 @@ Qk::Comm::Ack QkCore::start(int address)
     pd.address = address;
     pd.code = QK_PACKET_CODE_START;
     Qk::PacketBuilder::build(&p, pd);
-    comm_sendPacket(&p);
-    m_running = true; //TODO check ack
-    return _comm_wait(m_comm.defaultTimeout);
+    Qk::Comm::Ack ack = comm_sendPacket(&p, true);
+    if(ack.code == QK_COMM_OK)
+        m_running = true;
+    return ack;
 }
 
 Qk::Comm::Ack QkCore::stop(int address)
@@ -534,9 +534,10 @@ Qk::Comm::Ack QkCore::stop(int address)
     pd.address = address;
     pd.code = QK_PACKET_CODE_STOP;
     Qk::PacketBuilder::build(&p, pd);
-    comm_sendPacket(&p);
-    m_running = false; //TODO check ack
-    return _comm_wait(m_comm.defaultTimeout);
+    Qk::Comm::Ack ack = comm_sendPacket(&p);
+    if(ack.code == QK_COMM_OK)
+        m_running = false;
+    return ack;
 }
 
 bool QkCore::isRunning()
@@ -546,21 +547,18 @@ bool QkCore::isRunning()
 
 void QkCore::setCommTimeout(int timeout)
 {
-    m_comm.defaultTimeout = timeout;
+    m_comm.timeout = timeout;
 }
 
-#include <QCoreApplication>
+//#include <QCoreApplication>
 
 Qk::Comm::Ack QkCore::comm_sendPacket(Packet *p, bool wait)
 {
-    qDebug() << "QkCore::comm_sendPacket()" << p->codeFriendlyName();
+    qDebug() << __FUNCTION__ << p->codeFriendlyName();
     QByteArray frame;
 
     frame.append(p->flags.ctrl & 0xFF);
     frame.append((p->flags.ctrl >> 8) & 0xFF);
-    /*if(p->flags.ctrl & QK_PACKET_FLAGMASK_EXTEND) {
-        frame.append(p->flags.ctrl >> 8);
-    }*/
 
     frame.append(p->code);
     frame.append(p->data);
@@ -572,13 +570,20 @@ Qk::Comm::Ack QkCore::comm_sendPacket(Packet *p, bool wait)
 //    }
 
     m_comm.ack.code = QK_COMM_NACK;
+    m_framesToSend.enqueue(frame);
 
-    emit comm_sendFrame(frame);
+    emit comm_frameReady();
+//    emit comm_sendFrame(frame); //TODO obsolete (use queue instead)
 
     if(wait)
-        return _comm_wait(m_comm.defaultTimeout);
+        return _comm_wait(m_comm.timeout);
     else
         return m_comm.ack;
+}
+
+QQueue<QByteArray> *QkCore::framesToSend()
+{
+    return &m_framesToSend;
 }
 
 void QkCore::comm_processFrame(QByteArray frame)
