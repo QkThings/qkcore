@@ -14,9 +14,10 @@
 
 namespace Qk
 {
+    class Frame;
     class Packet;
     class Ack;
-    class Comm;
+    class Protocol;
     class PacketBuilder;
     class Info;
 }
@@ -45,7 +46,7 @@ class QkBoard;
 class QkGateway;
 class QkNetwork;
 class QkDevice;
-class QkModule;
+class QkComm;
 
 class QKLIBSHARED_EXPORT Qk::Info
 {
@@ -67,6 +68,13 @@ public:
     QString versionString();
 };
 
+class QKLIBSHARED_EXPORT Qk::Frame
+{
+public:
+    QByteArray data;
+    quint64 timestamp;
+};
+
 class QKLIBSHARED_EXPORT Qk::Packet
 {
 public:
@@ -79,38 +87,54 @@ public:
     QByteArray data;
     int checksum;
     int headerLength;
-
-    /*bool flag_extend;
-    bool flag_fragment;
-    bool flag_lastFragment;
-    bool flag_address;
-    bool flag_16bitaddr;*/
+    int id;
+    int timestamp;
 
     QString codeFriendlyName();
     int source();
+
+    static int requestId();
+private:
+    static int m_nextId;
 };
 
-class Qk::Comm
+class Qk::Ack
 {
 public:
-    class Ack {
-    public:
-        int code;
-        int arg;
-        int err;
+    enum Type {
+        NACK,
+        OK,
+        ERROR
     };
+    static Ack fromInt(int ack);
+    int arg;
+    int err;
+    int id;
+    int code;
+    int type;
+    int toInt();
+    bool operator ==(const Qk::Ack &other)
+    {
+        return ((id == other.id && type == other.type) ? true : false);
+    }
+};
+
+class Qk::Protocol
+{
+public:
     int timeout;
     bool sequence;
     Qk::Packet fragmentedPacket;
     Qk::Packet incomingPacket;
-    Ack ack;
+    Qk::Ack ack;
 };
+
 
 class QKLIBSHARED_EXPORT Qk::PacketBuilder {
 public:
     static bool build(Packet *packet, const PacketDescriptor &desc, QkBoard *board = 0);
     static bool validate(PacketDescriptor *pd);
-    static void parse(const QByteArray &frame, Packet *packet);
+    static void parse(const Frame &frame, Packet *packet);
 };
 
 class QKLIBSHARED_EXPORT QkBoard : public QObject
@@ -118,11 +142,8 @@ class QKLIBSHARED_EXPORT QkBoard : public QObject
     Q_OBJECT
 public:
     enum Type {
-        btHost,
-        btModule,
-        btDevice,
-        btNetwork,
-        btGateway
+        btComm = 1,
+        btDevice = 2
     };
     enum Info
     {
@@ -164,9 +185,9 @@ public:
     void _setQkInfo(const Qk::Info &qkInfo);
     void _setConfigs(QVector<Config> configs);
     void setConfigValue(int idx, QVariant value);
-    //Comm::Ack configure(int id, QVariant value);
-    Comm::Ack save();
-    Comm::Ack update();
+
+    Ack save();
+    Ack update();
 
     int address();
     QString name();
@@ -186,28 +207,10 @@ private:
     int m_filledInfoMask;
 };
 
-class QkGateway : public QkBoard {
+class QkComm : public QkBoard {
     Q_OBJECT
 public:
-    QkGateway(QkCore *qk);
-
-protected:
-
-};
-
-class QkNetwork : public QkBoard {
-    Q_OBJECT
-public:
-    QkNetwork(QkCore *qk);
-
-protected:
-    void setup();
-};
-
-class QkModule : public QkBoard {
-    Q_OBJECT
-public:
-    QkModule(QkCore *qk, QkNode *parentNode);
+    QkComm(QkCore *qk, QkNode *parentNode);
 
 protected:
     void setup();
@@ -315,12 +318,10 @@ public:
 
     QkDevice(QkCore *qk, QkNode *parentNode);
 
-    //static SamplingMode samplingModeEnum(const QString &name);
-    //static TriggerClock triggerClockEnum(const QString &name);
     static QString samplingModeString(SamplingMode mode);
     static QString triggerClockString(TriggerClock clock);
 
-    Comm::Ack update();
+    Ack update();
 
     void setSamplingInfo(const SamplingInfo &info);
     void setSamplingFrequency(int freq);
@@ -332,6 +333,10 @@ public:
     void _setDataLabel(int idx, const QString &label);
     void _setActions(QVector<Action> actions);
     void _setEvents(QVector<Event> events);
+    void _appendEvent(const QkDevice::Event &event);
+
+    QQueue<QkDevice::Event>* eventsFired();
+
 
     SamplingInfo samplingInfo();
     Data::Type dataType();
@@ -351,25 +356,27 @@ private:
     QVector<Event> m_events;
     Data::Type m_dataType;
 
+    QQueue<QkDevice::Event> m_eventsFired;
+
 };
 
-Q_DECLARE_METATYPE(QkDevice::Event)
+Q_DECLARE_METATYPE(QkDevice::Event) //TODO remove this
 
 class QKLIBSHARED_EXPORT QkNode
 {
 public:
     QkNode(QkCore *qk, int address);
 
-    QkModule *module();
+    QkComm *module();
     QkDevice *device();
-    void setModule(QkModule *module);
+    void setModule(QkComm *module);
     void setDevice(QkDevice *device);
 
     int address();
 private:
     QkCore *m_qk;
     int m_address;
-    QkModule *m_module;
+    QkComm *m_module;
     QkDevice *m_device;
 };
 
@@ -389,32 +396,25 @@ public:
     /**** API ***************************************/
     QkNode* node(int address = 0);
     QMap<int, QkNode*> nodes();
-    QkNetwork* network();
-    QkGateway* gateway();
     /************************************************/
 
     void _updateNode(int address = 0);
-    void _updateNetwork();
-    void _updateGateway();
-
     void _saveNode(int address = 0);
-    void _saveNetwork();
-    void _saveGateway();
 
     bool isRunning();
 
     void setCommTimeout(int timeout);
 
-    Comm::Ack comm_sendPacket(Packet *p, bool wait = false);
+    Ack comm_sendPacket(Packet *packet, bool wait = false);
+
+    Ack waitForACK(int id);
 
     QQueue<QByteArray>* framesToSend();
 
 signals:
-    void comm_sendFrame(QByteArray frame); //TODO obsolete (use queue instead)
+    //void comm_sendFrame(QByteArray frame); //TODO obsolete (use queue instead)
     void comm_frameReady();
     void packetProcessed();
-    void gatewayFound();
-    void networkFound();
     void moduleFound(int address);
     void deviceFound(int address);
     void deviceUpdated(int address);
@@ -422,33 +422,34 @@ signals:
     void infoChanged(int address, QkBoard::Type boardType, int mask);
 
     void dataReceived(int address);
-    void eventReceived(int address, QkDevice::Event e); //TODO obsolete (use queue instead)
+    //void eventReceived(int address, QkDevice::Event e); //TODO obsolete (use queue instead)
+    void eventReceived(int address);
     void debugString(int address, QString str);
     void error(int errCode, int errArg);
-    void ack(Qk::Comm::Ack ack);
+    void ack(Qk::Ack ack);
 
 public slots:
     /**** API ***************************************/
-    Comm::Ack search();
-    Comm::Ack getNode(int address = 0);
-    Comm::Ack start(int address = 0);
-    Comm::Ack stop(int address = 0);
+    Ack search();
+    Ack getNode(int address = 0);
+    Ack start(int address = 0);
+    Ack stop(int address = 0);
     /************************************************/
-    void comm_processFrame(QByteArray frame);
+    void comm_processFrame(Qk::Frame frame);
 
 private:
-    void _comm_parseFrame(QByteArray frame, Qk::Packet *packet);
+    void _comm_parseFrame(Qk::Frame frame, Qk::Packet *packet);
     void _comm_processPacket(Packet *p);
-    Comm::Ack _comm_wait(int timeout);
+    Ack _comm_wait(int packetID, int timeout);
 
     bool m_running;
-    QkGateway *m_gateway;
-    QkNetwork *m_network;
     QMap<int, QkNode*> m_nodes;
-    Qk::Comm m_comm;
+    Qk::Protocol m_protocol;
     QMutex m_mutex;
 
     QQueue<QByteArray> m_framesToSend;
+    QList<Qk::Ack> m_acks;
+    Qk::Ack m_frameAck;
 };
 
 #endif // QK_H

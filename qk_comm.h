@@ -30,6 +30,8 @@ namespace Qk {
 #define QK_COMM_TIMEOUT		0xFE
 
 #define QK_PACKET_CODE_WAKEUP           0xF5
+#define QK_PACKET_CODE_ACK              0x03
+
 #define QK_PACKET_CODE_OK               0x01
 #define QK_PACKET_CODE_ERR              0xFF
 #define QK_PACKET_CODE_TIMEOUT          0xFE
@@ -40,11 +42,10 @@ namespace Qk {
 #define QK_PACKET_CODE_SEARCH           0x06
 #define QK_PACKET_CODE_START            0x0A
 #define QK_PACKET_CODE_STOP             0x0F
+
 #define QK_PACKET_CODE_GETNODE          0x10
 #define QK_PACKET_CODE_GETMODULE        0x11
 #define QK_PACKET_CODE_GETDEVICE        0x12
-#define QK_PACKET_CODE_GETNETWORK       0x13
-#define QK_PACKET_CODE_GETGATEWAY       0x14
 #define QK_PACKET_CODE_GETQK            0x15
 #define QK_PACKET_CODE_GETSAMP          0x16
 #define QK_PACKET_CODE_GETSTATUS        0x17
@@ -55,9 +56,7 @@ namespace Qk {
 #define QK_PACKET_CODE_GETINFOCONFIG    0x2C
 #define QK_PACKET_CODE_GETINFOEVENT     0x2E
 #define QK_PACKET_CODE_DEVICEFOUND      0x1A
-#define QK_PACKET_CODE_MODULEFOUND      0x1B
-#define QK_PACKET_CODE_NETWORKFOUND     0x1C
-#define QK_PACKET_CODE_GATEWAYFOUND     0x1D
+#define QK_PACKET_CODE_COMMFOUND        0x1B
 #define QK_PACKET_CODE_SETQK            0x33
 #define QK_PACKET_CODE_SETNAME          0x34
 #define QK_PACKET_CODE_SETSAMP          0x36
@@ -69,10 +68,8 @@ namespace Qk {
 #define QK_PACKET_CODE_INFOQK           0xB1
 #define QK_PACKET_CODE_INFOSAMP         0xB2
 #define QK_PACKET_CODE_INFOBOARD        0xB5
-#define QK_PACKET_CODE_INFOMODULE       0xB6
+#define QK_PACKET_CODE_INFOCOMM         0xB6
 #define QK_PACKET_CODE_INFODEVICE       0xB7
-#define QK_PACKET_CODE_INFONETWORK      0xB8
-#define QK_PACKET_CODE_INFOGATEWAY      0xB9
 #define QK_PACKET_CODE_INFOACTION       0xBA
 #define QK_PACKET_CODE_INFODATA         0xBD
 #define QK_PACKET_CODE_INFOEVENT        0xBE
