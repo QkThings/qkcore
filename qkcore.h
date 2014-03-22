@@ -4,6 +4,7 @@
 #include "qklib_global.h"
 #include "qk_defs.h"
 #include "qk_comm.h"
+#include "stdint.h"
 
 #include <QDebug>
 #include <QObject>
@@ -27,6 +28,7 @@ namespace QkUtils
     union _IntFloatConverter {
         float f_value;
         int i_value;
+        uint8_t bytes[4];
     };
     void fillValue(int value, int count, int *idx, QByteArray &data);
     void fillString(const QString &str, int count, int *idx, QByteArray &data);
@@ -88,7 +90,7 @@ public:
     int checksum;
     int headerLength;
     int id;
-    int timestamp;
+    quint64 timestamp;
 
     QString codeFriendlyName();
     int source();
@@ -272,12 +274,28 @@ public:
         };
         Data();
         void _setLabel(const QString &label);
-        void _setValue(float value);
+        void _setValue(float value, quint64 timestamp = 0);
         QString label();
         float value();
+        quint64 timestamp();
     private:
         QString m_label;
         float m_value;
+        quint64 m_timestamp;
+    };
+
+    class QKLIBSHARED_EXPORT Event {
+    public:
+        void _setLabel(const QString &label);
+        void _setArgs(QList<float> args);
+        void _setMessage(const QString &msg);
+        QString label();
+        QList<float> args();
+        QString message();
+    private:
+        QString m_label;
+        QList<float> m_args;
+        QString m_text;
     };
 
     class QKLIBSHARED_EXPORT Action {
@@ -302,20 +320,6 @@ public:
         QVariant m_value;
     };
 
-    class QKLIBSHARED_EXPORT Event {
-    public:
-        void _setLabel(const QString &label);
-        void _setArgs(QList<float> args);
-        void _setMessage(const QString &msg);
-        QString label();
-        QList<float> args();
-        QString message();
-    private:
-        QString m_label;
-        QList<float> m_args;
-        QString m_text;
-    };
-
     QkDevice(QkCore *qk, QkNode *parentNode);
 
     static QString samplingModeString(SamplingMode mode);
@@ -329,14 +333,13 @@ public:
     void _setSamplingInfo(SamplingInfo info);
     void _setData(QVector<Data> data);
     void _setDataType(Data::Type type);
-    void _setDataValue(int idx, float value);
+    void _setDataValue(int idx, float value, quint64 timestamp = 0);
     void _setDataLabel(int idx, const QString &label);
     void _setActions(QVector<Action> actions);
     void _setEvents(QVector<Event> events);
     void _appendEvent(const QkDevice::Event &event);
 
     QQueue<QkDevice::Event>* eventsFired();
-
 
     SamplingInfo samplingInfo();
     Data::Type dataType();
@@ -356,6 +359,7 @@ private:
     QVector<Event> m_events;
     Data::Type m_dataType;
 
+    //TODO queue for data
     QQueue<QkDevice::Event> m_eventsFired;
 
 };

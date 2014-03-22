@@ -269,14 +269,14 @@ void QkDevice::_setDataType(Data::Type type)
     m_dataType = type;
 }
 
-void QkDevice::_setDataValue(int idx, float value)
+void QkDevice::_setDataValue(int idx, float value, quint64 timestamp)
 {
     if(idx < 0 || idx > m_data.size())
     {
         qWarning() << __FUNCTION__ << "data index out of bounds";
         m_data.resize(idx+1);
     }
-    m_data[idx]._setValue(value);
+    m_data[idx]._setValue(value, timestamp);
 }
 
 void QkDevice::_setDataLabel(int idx, const QString &label)
@@ -366,9 +366,10 @@ void QkDevice::Data::_setLabel(const QString &label)
     m_label = label;
 }
 
-void QkDevice::Data::_setValue(float value)
+void QkDevice::Data::_setValue(float value, quint64 timestamp)
 {
     m_value = value;
+    m_timestamp = timestamp;
 }
 
 QString QkDevice::Data::label()
@@ -379,6 +380,11 @@ QString QkDevice::Data::label()
 float QkDevice::Data::value()
 {
     return m_value;
+}
+
+quint64 QkDevice::Data::timestamp()
+{
+    return m_timestamp;
 }
 
 void QkDevice::Event::_setLabel(const QString &label)
@@ -780,8 +786,13 @@ void QkCore::_comm_processPacket(Packet *p)
                 varValue = QVariant((bool) getValue(1, &i_data, p->data));
                 break;
             case QkBoard::Config::ctIntDec:
-            case QkBoard::Config::ctIntHex:
                 varValue = QVariant((int) getValue(4, &i_data, p->data, true));
+                min = (double) getValue(4, &i_data, p->data, true);
+                max = (double) getValue(4, &i_data, p->data, true);
+                break;
+            case QkBoard::Config::ctIntHex:
+                varValue = QVariant((unsigned int) getValue(4, &i_data, p->data, true));
+                qDebug() << "config info value HEX" << varValue;
                 min = (double) getValue(4, &i_data, p->data, true);
                 max = (double) getValue(4, &i_data, p->data, true);
                 break;
@@ -895,7 +906,7 @@ void QkCore::_comm_processPacket(Packet *p)
                 dataValue = getValue(4, &i_data, p->data, true);
             else
                 dataValue = floatFromBytes(getValue(4, &i_data, p->data, true));
-            selDevice->_setDataValue(i, dataValue);
+            selDevice->_setDataValue(i, dataValue, p->timestamp);
             if(bufferJustCreated)
                 selDevice->_setDataLabel(i, QString().sprintf("D%d",i));
         }
@@ -1188,10 +1199,14 @@ bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBo
             fillValue(configValue.toInt(), 1, &i_data, packet->data);
             break;
         case QkBoard::Config::ctIntDec:
-        case QkBoard::Config::ctIntHex:
             fillValue(configValue.toInt(), 4, &i_data, packet->data);
             break;
+        case QkBoard::Config::ctIntHex:
+            qDebug() << "config value HEX:" << configValue.toInt();
+            fillValue(configValue.toUInt(), 4, &i_data, packet->data);
+            break;
         case QkBoard::Config::ctFloat:
+            qDebug() << "config value FLOAT:" << configValue.toFloat() << "bytes:" << QkUtils::bytesFromFloat(configValue.toFloat());
             fillValue(QkUtils::bytesFromFloat(configValue.toFloat()), 4, &i_data, packet->data);
             break;
         case QkBoard::Config::ctDateTime:
@@ -1501,6 +1516,13 @@ int QkUtils::bytesFromFloat(float value)
 {
     QkUtils::_IntFloatConverter converter;
     converter.f_value = value;
+
+//    uint8_t tmp[4];
+//    for(int i=0; i < 2; i++)
+//        tmp[3-i] = converter.bytes[i];
+//    for(int i=0; i < 4; i++)
+//        converter.bytes[i] = tmp[i];
+
     return converter.i_value;
 }
 
