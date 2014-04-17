@@ -1,6 +1,5 @@
 #include "qkcore.h"
 #include "qk_defs.h"
-#include "qk_utils.h"
 
 #include <QDebug>
 #include <QElapsedTimer>
@@ -640,7 +639,7 @@ void QkCore::_comm_processPacket(Packet *p)
     QkDevice *selDevice = 0;
     bool boardCreated = false;
 
-    using namespace QkUtils;
+    using namespace Utils;
 
     QMutexLocker locker(&m_mutex);
 
@@ -797,7 +796,7 @@ void QkCore::_comm_processPacket(Packet *p)
                 max = (double) getValue(4, &i_data, p->data, true);
                 break;
             case QkBoard::Config::ctFloat:
-                varValue = QVariant(QkUtils::floatFromBytes(getValue(4, &i_data, p->data, true)));
+                varValue = QVariant(Utils::floatFromBytes(getValue(4, &i_data, p->data, true)));
                 min = (double) getValue(4, &i_data, p->data, true);
                 max = (double) getValue(4, &i_data, p->data, true);
                 break;
@@ -1154,7 +1153,7 @@ bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBo
 
     int i_data;
     QkDevice *device = 0;
-    using namespace QkUtils;
+    using namespace Utils;
 
     packet->flags.ctrl = 0;
     packet->address = desc.address;
@@ -1206,8 +1205,8 @@ bool Qk::PacketBuilder::build(Packet *packet, const PacketDescriptor &desc, QkBo
             fillValue(configValue.toUInt(), 4, &i_data, packet->data);
             break;
         case QkBoard::Config::ctFloat:
-            qDebug() << "config value FLOAT:" << configValue.toFloat() << "bytes:" << QkUtils::bytesFromFloat(configValue.toFloat());
-            fillValue(QkUtils::bytesFromFloat(configValue.toFloat()), 4, &i_data, packet->data);
+            qDebug() << "config value FLOAT:" << configValue.toFloat() << "bytes:" << Utils::bytesFromFloat(configValue.toFloat());
+            fillValue(Utils::bytesFromFloat(configValue.toFloat()), 4, &i_data, packet->data);
             break;
         case QkBoard::Config::ctDateTime:
             fillValue(configValue.toDateTime().date().year()-2000, 1, &i_data, packet->data);
@@ -1282,7 +1281,7 @@ void Qk::PacketBuilder::parse(const Qk::Frame &frame, Packet *packet)
 {
     int i_data = 0;
 
-    using namespace QkUtils;
+    using namespace Utils;
 
     QByteArray data = frame.data;
 
@@ -1301,7 +1300,7 @@ void Qk::PacketBuilder::parse(const Qk::Frame &frame, Packet *packet)
     packet->data.truncate(packet->data.count() - 1); // remove checksum byte
 }
 
-void QkUtils::fillValue(int value, int count, int *idx, QByteArray &data)
+void Utils::fillValue(int value, int count, int *idx, QByteArray &data)
 {
     int i, j = *idx;
     for(i = 0; i < count; i++, j++)
@@ -1311,20 +1310,20 @@ void QkUtils::fillValue(int value, int count, int *idx, QByteArray &data)
     *idx = j;
 }
 
-void QkUtils::fillString(const QString &str, int count, int *idx, QByteArray &data)
+void Utils::fillString(const QString &str, int count, int *idx, QByteArray &data)
 {
     QString justifiedStr = str.leftJustified(count, '\0', true);
     fillString(justifiedStr, idx, data);
 }
 
-void QkUtils::fillString(const QString &str, int *idx, QByteArray &data)
+void Utils::fillString(const QString &str, int *idx, QByteArray &data)
 {
     int j = *idx;
     data.insert(j, str);
     j += str.length()+1;
 }
 
-int QkUtils::getValue(int count, int *idx, const QByteArray &data, bool sigExt)
+int Utils::getValue(int count, int *idx, const QByteArray &data, bool sigExt)
 {   
     int j, value = 0;
     int i = *idx;
@@ -1356,7 +1355,7 @@ int QkUtils::getValue(int count, int *idx, const QByteArray &data, bool sigExt)
     return value;
 }
 
-QString QkUtils::getString(int *idx, const QByteArray &data)
+QString Utils::getString(int *idx, const QByteArray &data)
 {
     int j;
     char c, buf[1024];
@@ -1383,7 +1382,7 @@ QString QkUtils::getString(int *idx, const QByteArray &data)
     return QString(buf);
 }
 
-QString QkUtils::getString(int count, int *idx, const QByteArray &data)
+QString Utils::getString(int count, int *idx, const QByteArray &data)
 {
     int j;
     char c, buf[count+1];
@@ -1505,16 +1504,16 @@ QString Qk::Packet::codeFriendlyName()
     }
 }
 
-float QkUtils::floatFromBytes(int value)
+float Utils::floatFromBytes(int value)
 {
-    QkUtils::_IntFloatConverter converter;
+    Utils::_IntFloatConverter converter;
     converter.i_value = value;
     return converter.f_value;
 }
 
-int QkUtils::bytesFromFloat(float value)
+int Utils::bytesFromFloat(float value)
 {
-    QkUtils::_IntFloatConverter converter;
+    Utils::_IntFloatConverter converter;
     converter.f_value = value;
 
 //    uint8_t tmp[4];

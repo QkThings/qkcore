@@ -23,7 +23,7 @@ namespace Qk
     class Info;
 }
 
-namespace QkUtils
+namespace Utils
 {
     union _IntFloatConverter {
         float f_value;
