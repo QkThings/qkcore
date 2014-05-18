@@ -460,13 +460,13 @@ QkNode::QkNode(QkCore *qk, int address)
 {
     m_qk = qk;
     m_address = address;
-    m_module = 0;
+    m_comm = 0;
     m_device = 0;
 }
 
-void QkNode::setModule(QkComm *module)
+void QkNode::setComm(QkComm *comm)
 {
-    m_module = module;
+    m_comm = comm;
 }
 
 void QkNode::setDevice(QkDevice *device)
@@ -474,9 +474,9 @@ void QkNode::setDevice(QkDevice *device)
     m_device = device;
 }
 
-QkComm* QkNode::module()
+QkComm* QkNode::comm()
 {
-    return m_module;
+    return m_comm;
 }
 
 QkDevice* QkNode::device()
@@ -635,7 +635,7 @@ void QkCore::_comm_processPacket(Packet *p)
 
     QkBoard *selBoard = 0;
     QkNode *selNode = 0;
-    QkComm *selModule = 0;
+    QkComm *selComm = 0;
     QkDevice *selDevice = 0;
     bool boardCreated = false;
 
@@ -652,12 +652,13 @@ void QkCore::_comm_processPacket(Packet *p)
             selNode = new QkNode(this, p->address);
             m_nodes.insert(p->address, selNode);
         }
-        if(selNode->module() == 0)
+        if(selNode->comm() == 0)
         {
-            selNode->setModule(new QkComm(this, selNode));
+            selNode->setComm(new QkComm(this, selNode));
             boardCreated = true;
         }
-        selBoard = selNode->module();
+        selComm = selNode->comm();
+        selBoard = selNode->comm();
         break;
     case QkBoard::btDevice:
         selNode = node(p->address);
@@ -685,27 +686,29 @@ void QkCore::_comm_processPacket(Packet *p)
         return;
     }
 
-    switch(p->code)
-    {
-    case QK_PACKET_CODE_DATA:
-    case QK_PACKET_CODE_EVENT:
-    case QK_PACKET_CODE_STRING:
-    case QK_PACKET_CODE_OK:
-    case QK_PACKET_CODE_ERR:
-        if(boardCreated)
-        {
-            switch(p->source())
-            {
-            case QkBoard::btDevice:
-                emit deviceFound(p->address);
-                break;
-            default:
-                qDebug() << "source?";
-            }
-        }
-        break;
-    default:;
-    }
+//    switch(p->code)
+//    {
+//    case QK_PACKET_CODE_DATA:
+//    case QK_PACKET_CODE_EVENT:
+//    case QK_PACKET_CODE_STRING:
+//    case QK_PACKET_CODE_OK:
+//    case QK_PACKET_CODE_ERR:
+//        if(boardCreated)
+//        {
+//            switch(p->source())
+//            {
+//            case QkBoard::btComm:
+//                emit moduleFound(p->address);
+//            case QkBoard::btDevice:
+//                emit deviceFound(p->address);
+//                break;
+//            default:
+//                qDebug() << "source?";
+//            }
+//        }
+//        break;
+//    default:;
+//    }
 
     int i, j, size, fwVersion, ncfg, ndat, nact, nevt, eventID, nargs;
     int year, month, day, hours, minutes, seconds;
@@ -983,8 +986,14 @@ void QkCore::_comm_processPacket(Packet *p)
         {
             switch(p->source())
             {
+            case QkBoard::btComm: emit commFound(selNode->address()); break;
             case QkBoard::btDevice: emit deviceFound(selNode->address()); break;
             }
+        }
+        else if((receivedAck.code == QK_PACKET_CODE_GETNODE && p->source() == QkBoard::btComm) ||
+                receivedAck.code == QK_PACKET_CODE_GETMODULE)
+        {
+            emit commUpdated(selNode->address());
         }
         else if((receivedAck.code == QK_PACKET_CODE_GETNODE && p->source() == QkBoard::btDevice) ||
                 receivedAck.code == QK_PACKET_CODE_GETDEVICE)

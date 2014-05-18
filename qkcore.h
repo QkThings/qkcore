@@ -371,16 +371,16 @@ class QKLIBSHARED_EXPORT QkNode
 public:
     QkNode(QkCore *qk, int address);
 
-    QkComm *module();
+    QkComm *comm();
     QkDevice *device();
-    void setModule(QkComm *module);
+    void setComm(QkComm *comm);
     void setDevice(QkDevice *device);
 
     int address();
 private:
     QkCore *m_qk;
     int m_address;
-    QkComm *m_module;
+    QkComm *m_comm;
     QkDevice *m_device;
 };
 
@@ -419,7 +419,8 @@ signals:
     //void comm_sendFrame(QByteArray frame); //TODO obsolete (use queue instead)
     void comm_frameReady();
     void packetProcessed();
-    void moduleFound(int address);
+    void commFound(int address);
+    void commUpdated(int address);
     void deviceFound(int address);
     void deviceUpdated(int address);
 
