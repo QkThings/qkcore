@@ -642,7 +642,8 @@ void QkCore::comm_processFrame(Qk::Frame frame)
     {
         m_protocol.fragmentedPacket.data.append(incomingPacket->data);
 
-        if(!(incomingPacket->flags.ctrl & QK_PACKET_FLAGMASK_CTRL_LASTFRAG)) //FIXME create elapsedTimer to timeout lastFragment reception
+        //FIXME create elapsedTimer to timeout lastFragment reception
+        if(!(incomingPacket->flags.ctrl & QK_PACKET_FLAGMASK_CTRL_LASTFRAG))
             return;
         else
         {
