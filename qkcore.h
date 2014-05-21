@@ -337,7 +337,7 @@ public:
     void _setDataLabel(int idx, const QString &label);
     void _setActions(QVector<Action> actions);
     void _setEvents(QVector<Event> events);
-    void _appendEvent(const QkDevice::Event &event);
+    void _logEvent(const QkDevice::Event &event);
 
     QQueue<QkDevice::Event>* eventsFired();
 
@@ -353,6 +353,9 @@ protected:
     void setup();
 
 private:
+    enum {
+        _maxEventsLogged = 100
+    };
     SamplingInfo m_samplingInfo;
     QVector<Data> m_data;
     QVector<Action> m_actions;
@@ -407,7 +410,8 @@ public:
 
     bool isRunning();
 
-    void setCommTimeout(int timeout);
+    void setProtocolTimeout(int timeout);
+    void setEventLogging(bool enabled);
 
     Ack comm_sendPacket(Packet *packet, bool wait = false);
 
@@ -435,6 +439,7 @@ signals:
 
 public slots:
     /**** API ***************************************/
+    Ack hello();
     Ack search();
     Ack getNode(int address = 0);
     Ack start(int address = 0);
@@ -448,6 +453,7 @@ private:
     Ack _comm_wait(int packetID, int timeout);
 
     bool m_running;
+    bool m_eventLogging;
     QMap<int, QkNode*> m_nodes;
     Qk::Protocol m_protocol;
     QMutex m_mutex;

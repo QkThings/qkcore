@@ -42,6 +42,7 @@ namespace Qk {
 #define QK_PACKET_CODE_SEARCH           0x06
 #define QK_PACKET_CODE_START            0x0A
 #define QK_PACKET_CODE_STOP             0x0F
+#define QK_PACKET_CODE_HELLO            0x0E
 
 #define QK_PACKET_CODE_GETNODE          0x10
 #define QK_PACKET_CODE_GETMODULE        0x11

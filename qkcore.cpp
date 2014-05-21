@@ -298,9 +298,11 @@ void QkDevice::_setEvents(QVector<Event> events)
     m_events = events;
 }
 
-void QkDevice::_appendEvent(const QkDevice::Event &event)
+void QkDevice::_logEvent(const QkDevice::Event &event)
 {
     m_eventsFired.append(event);
+    while(m_eventsFired.count() > _maxEventsLogged)
+        m_eventsFired.removeFirst();
 }
 
 QQueue<QkDevice::Event> *QkDevice::eventsFired()
@@ -496,7 +498,7 @@ QkCore::QkCore(QObject *parent) :
     m_running = false;
     m_nodes.clear();
     m_protocol.sequence = false;
-    setCommTimeout(2000);
+    setProtocolTimeout(2000);
 }
 
 QkNode* QkCore::node(int address)
@@ -509,8 +511,30 @@ QMap<int, QkNode*> QkCore::nodes()
     return m_nodes;
 }
 
+Qk::Ack QkCore::hello()
+{
+    qDebug() << __FUNCTION__;
+    Qk::Packet p;
+    Qk::PacketDescriptor pd;
+    pd.address = 0;
+    pd.code = QK_PACKET_CODE_HELLO;
+    Qk::PacketBuilder::build(&p, pd);
+
+    int retries = 10;
+    int backup_timeout = m_protocol.timeout;
+    m_protocol.timeout = 100;
+    Qk::Ack ack;
+    while(ack.type != Qk::Ack::OK && retries--)
+    {
+        ack = comm_sendPacket(&p, true);
+    }
+    m_protocol.timeout = backup_timeout;
+    return ack;
+}
+
 Qk::Ack QkCore::search()
 {
+    qDebug() << __FUNCTION__;
     //TODO clear all nodes
     Qk::Packet p;
     Qk::PacketDescriptor pd;
@@ -562,9 +586,14 @@ bool QkCore::isRunning()
     return m_running;
 }
 
-void QkCore::setCommTimeout(int timeout)
+void QkCore::setProtocolTimeout(int timeout)
 {
     m_protocol.timeout = timeout;
+}
+
+void QkCore::setEventLogging(bool enabled)
+{
+    m_eventLogging = enabled;
 }
 
 //#include <QCoreApplication>
@@ -698,7 +727,7 @@ void QkCore::_comm_processPacket(Packet *p)
 //            switch(p->source())
 //            {
 //            case QkBoard::btComm:
-//                emit moduleFound(p->address);
+//                emit commFound(p->address);
 //            case QkBoard::btDevice:
 //                emit deviceFound(p->address);
 //                break;
@@ -777,11 +806,13 @@ void QkCore::_comm_processPacket(Packet *p)
         break;
     case QK_PACKET_CODE_INFOCONFIG:
         ncfg = getValue(1, &i_data, p->data);
+        qDebug() << "ncfg" << ncfg;
         configs = QVector<QkBoard::Config>(ncfg);
         for(i=0; i<ncfg; i++)
         {
             configType = (QkBoard::Config::Type) getValue(1, &i_data, p->data);
             label = getString(QK_LABEL_SIZE, &i_data, p->data);
+            qDebug() << "config label" << label;
             switch(configType)
             {
             case QkBoard::Config::ctBool:
@@ -794,7 +825,6 @@ void QkCore::_comm_processPacket(Packet *p)
                 break;
             case QkBoard::Config::ctIntHex:
                 varValue = QVariant((unsigned int) getValue(4, &i_data, p->data, true));
-                qDebug() << "config info value HEX" << varValue;
                 min = (double) getValue(4, &i_data, p->data, true);
                 max = (double) getValue(4, &i_data, p->data, true);
                 break;
@@ -936,7 +966,9 @@ void QkCore::_comm_processPacket(Packet *p)
         }
         firedEvent._setArgs(eventArgs);
         firedEvent._setMessage(getString(&i_data, p->data));
-        selDevice->_appendEvent(firedEvent);
+//        if(!m_eventLogging)
+//            selDevice->eventsFired()->clear();
+        selDevice->_logEvent(firedEvent);
         break;
     case QK_PACKET_CODE_STRING:
         debugStr = getString(&i_data, p->data);
@@ -1146,11 +1178,10 @@ Qk::Ack QkCore::_comm_wait(int packetID, int timeout)
         qDebug() << "acks ="  << m_acks.count();
         foreach(const Qk::Ack &receivedAck, m_acks)
             qDebug() << "ack packetID" << receivedAck.id;
-        error(QK_ERR_COMM_TIMEOUT, timeout);
+//        emit error(QK_ERR_COMM_TIMEOUT, timeout);
     }
 
     m_acks.removeOne(ack);
-
 
     return ack;
 }
