@@ -1,25 +1,12 @@
-#ifndef QK_COMM_H
-#define QK_COMM_H
+#ifndef QKPACKET_H
+#define QKPACKET_H
 
 #include "stdint.h"
 #include <QString>
+#include "qkcore_global.h"
+#include "qkprotocol.h"
 
-namespace Qk {
-    class PacketDescriptor
-    {
-    public:
-        uint64_t address;
-        uint8_t  code;
-        uint8_t  boardType;
 
-        QString setname_str;
-        int getnode_address;
-        int setconfig_idx;
-        int action_id;
-    };
-}
-
-/******************************************************************************/
 #define QK_COMM_WAKEUP      0x00
 #define QK_COMM_FLAG        0x55	// Flag
 #define QK_COMM_DLE			0xDD	// Data Link Escape
@@ -35,8 +22,6 @@ namespace Qk {
 #define QK_PACKET_CODE_OK               0x01
 #define QK_PACKET_CODE_ERR              0xFF
 #define QK_PACKET_CODE_TIMEOUT          0xFE
-#define QK_PACKET_CODE_SEQBEGIN         0xCB    // Sequence begin
-#define QK_PACKET_CODE_SEQEND           0xCE    // Sequence end
 #define QK_PACKET_CODE_SAVE             0x04
 #define QK_PACKET_CODE_RESTORE          0x05
 #define QK_PACKET_CODE_SEARCH           0x06
@@ -81,37 +66,100 @@ namespace Qk {
 #define QK_PACKET_CODE_EVENT            0xDE
 #define QK_PACKET_CODE_STRING           0xDF
 
-/******************************************************************************/
-typedef enum qk_error
-{
-    QK_ERR_COMM_TIMEOUT = 0,
-    QK_ERR_CODE_UNKNOWN = 255,
-    QK_ERR_UNABLE_TO_SEND_MESSAGE,
-    QK_ERR_UNSUPPORTED_OPERATION,
-    QK_ERR_INVALID_BOARD,
-    QK_ERR_INVALID_DATA_OR_ARG,
-    QK_ERR_BOARD_NOT_CONNECTED,
-    QK_ERR_INVALID_SAMP_FREQ,
-    QK_ERR_SAMP_OVERLAP
-} qk_error_t;
-/******************************************************************************/
-#define SIZE_FLAGS_CTRL     2
-#define SIZE_FLAGS_NETWORK  1
-#define SIZE_ID             1
-#define SIZE_CODE           1
-#define SIZE_ADDR16         2
-#define SIZE_ADDR64         8
-/******************************************************************************/
 #define QK_PACKET_FLAGMASK_CTRL_SRC        0x0070
 #define QK_PACKET_FLAGMASK_CTRL_NOTIF      0x0008
 #define QK_PACKET_FLAGMASK_CTRL_FRAG       0x0004
 #define QK_PACKET_FLAGMASK_CTRL_LASTFRAG   0x0002
 #define QK_PACKET_FLAGMASK_CTRL_ADDRESS    0x0001
 #define QK_PACKET_FLAGMASK_CTRL_DEST       0x0700
-/******************************************************************************/
 
-/*#define QK_PACKET_CODE_OFFSET(packet)   (packet->headerLength - QK_PACKET_CODE_SIZE)
-#define QK_PACKET_ADDR16_OFFSET(packet) (QK_PACKET_CODE_OFFSET(packet) - QK_PACKET_ADDR16BIT_SIZE)
-#define QK_PACKET_ADDR64_OFFSET(packet) (QK_PACKET_CODE_OFFSET(packet) - QK_PACKET_ADDR64BIT_SIZE)*/
+#define SIZE_FLAGS_CTRL     2
+#define SIZE_FLAGS_NETWORK  1
+#define SIZE_ID             1
+#define SIZE_CODE           1
+#define SIZE_ADDR16         2
+#define SIZE_ADDR64         8
 
-#endif // QK_COMM_H
+class QkBoard;
+
+class QKLIBSHARED_EXPORT QkFrame
+{
+public:
+    QByteArray data;
+    quint64 timestamp;
+};
+
+class QKLIBSHARED_EXPORT QkPacket
+{
+public:
+    class Descriptor
+    {
+    public:
+        uint64_t address;
+        uint8_t  code;
+        uint8_t  boardType;
+
+        QString setname_str;
+        int getnode_address;
+        int setconfig_idx;
+        int action_id;
+    };
+    class QKLIBSHARED_EXPORT Builder {
+    public:
+        static bool build(QkPacket *packet, const Descriptor &desc, QkBoard *board = 0);
+        static bool validate(Descriptor *pd);
+        static void parse(const QkFrame &frame, QkPacket *packet);
+    };
+
+    int address;
+    struct {
+     int ctrl;
+     int network;
+    } flags;
+    int code;
+    QByteArray data;
+    int checksum;
+    int headerLength;
+    int id;
+    quint64 timestamp;
+
+    QString codeFriendlyName();
+    int source();
+    void calculateHeaderLenght();
+
+    static int requestId();
+private:
+    static int m_nextId;
+};
+
+class QKLIBSHARED_EXPORT QkAck
+{
+public:
+    enum Type {
+        NACK,
+        OK,
+        ERROR
+    };
+    static QkAck fromInt(int ack);
+    int arg;
+    int err;
+    int id;
+    int code;
+    int type;
+    int toInt();
+    bool operator ==(const QkAck &other)
+    {
+        return ((id == other.id && type == other.type) ? true : false);
+    }
+};
+
+class QkProtocol
+{
+public:
+    int timeout;
+    QkPacket fragmentedPacket;
+    QkPacket incomingPacket;
+    QkAck ack;
+};
+
+#endif // QKPACKET_H

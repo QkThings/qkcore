@@ -1,5 +1,5 @@
-#ifndef QK_DEFS_H
-#define QK_DEFS_H
+#ifndef QKSETTINGS_H
+#define QKSETTINGS_H
 
 #define QK_FLAGMASK_EVENTNOTIF  (1<<0)
 #define QK_FLAGMASK_STATUSNOTIF (1<<1)

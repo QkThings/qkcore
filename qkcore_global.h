@@ -1,5 +1,5 @@
-#ifndef QKLIB_GLOBAL_H
-#define QKLIB_GLOBAL_H
+#ifndef QKCORE_GLOBAL_H
+#define QKCORE_GLOBAL_H
 
 #include <QtCore/qglobal.h>
 

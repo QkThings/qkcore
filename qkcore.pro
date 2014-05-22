@@ -8,8 +8,7 @@ QT       -= gui
 
 TARGET = qkcore
 TEMPLATE = lib
-INCLUDEPATH += private
-INCLUDEPATH += comm
+INCLUDEPATH += ../utils
 
 #DEFINES += QT_NO_DEBUG_OUTPUT
 
@@ -17,13 +16,24 @@ DEFINES += QKLIB_LIBRARY
 
 SOURCES += \
     qkcore.cpp \
-    comm/qk_comm.cpp
+    ../utils/qkutils.cpp \
+    qkcomm.cpp \
+    qkdevice.cpp \
+    qkboard.cpp \
+    qknode.cpp \
+    qkpacket.cpp
 
 HEADERS +=\
-    qklib_global.h \
-    qk_defs.h \
-    qk_comm.h \
-    qkcore.h
+    qkcore.h \
+    qkprotocol.h \
+    qklib_constants.h \
+    ../utils/qkutils.h \
+    qkcomm.h \
+    qkdevice.h \
+    qkboard.h \
+    qknode.h \
+    qkpacket.h \
+    qkcore_global.h
 
 unix:!symbian {
     maemo5 {
