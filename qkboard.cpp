@@ -115,7 +115,7 @@ QkAck QkBoard::update()
     desc.code = QK_PACKET_CODE_SETNAME;
     desc.setname_str = name();
     QkPacket::Builder::build(&p, desc, this);
-    ack = m_qk->comm_sendPacket(&p, true);
+    ack = m_qk->protocol()->sendPacket(&p, true);
     if(ack.type != QkAck::OK) {
         qDebug() << "failed to set name" << ack.type;
         return ack;
@@ -126,14 +126,14 @@ QkAck QkBoard::update()
     {
         desc.setconfig_idx = i;
         QkPacket::Builder::build(&p, desc, this);
-        ack = m_qk->comm_sendPacket(&p, true);
+        ack = m_qk->protocol()->sendPacket(&p, true);
         if(ack.type != QkAck::OK)
             return ack;
     }
 
     desc.code = QK_PACKET_CODE_SETSAMP;
     QkPacket::Builder::build(&p, desc, this);
-    ack = m_qk->comm_sendPacket(&p, true);
+    ack = m_qk->protocol()->sendPacket(&p, true);
     if(ack.type != QkAck::OK)
         return ack;
 
@@ -148,5 +148,5 @@ QkAck QkBoard::save()
     desc.address = address();
     desc.code = QK_PACKET_CODE_SAVE;
     QkPacket::Builder::build(&p, desc);
-    return m_qk->comm_sendPacket(&p);
+    return m_qk->protocol()->sendPacket(&p);
 }

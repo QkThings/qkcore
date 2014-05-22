@@ -1,7 +1,7 @@
 #ifndef QKNODE_H
 #define QKNODE_H
 
-#include "qkcore_global.h"
+#include "qkcore_lib.h"
 #include <QObject>
 
 class QkCore;

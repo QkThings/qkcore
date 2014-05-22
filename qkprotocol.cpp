@@ -1,15 +1,25 @@
-#include "qkpacket.h"
+
+#include "qkprotocol.h"
+#include "qkcore.h"
 #include "qkboard.h"
 #include "qkdevice.h"
+#include "qkcomm.h"
 
 #include "qkutils.h"
-#include "qklib_constants.h"
+#include "qkcore_constants.h"
 
 #include <QDebug>
 #include <QDateTime>
+#include <QMutexLocker>
+#include <QMutex>
+#include <QEventLoop>
+#include <QElapsedTimer>
+#include <QTimer>
 
 
 using namespace QkUtils;
+
+int QkPacket::m_nextId = 0;
 
 int QkAck::toInt()
 {
@@ -25,11 +35,125 @@ QkAck QkAck::fromInt(int ack)
     return res;
 }
 
+QkProtocol::QkProtocol(QkCore *qk, QObject *parent) :
+    QObject(parent)
+{
+
+}
+
+QkAck QkProtocol::sendPacket(QkPacket *packet, bool wait, int retries)
+{
+    QByteArray frame;
+
+    frame.append(packet->flags.ctrl & 0xFF);
+    frame.append((packet->flags.ctrl >> 8) & 0xFF);
+    frame.append(packet->id);
+    frame.append(packet->code);
+    frame.append(packet->data);
+
+    //m_framesToSend.enqueue(frame);
+    //emit comm_frameReady();
+
+    if(wait)
+        return waitForACK(packet->id);
+    else
+        return m_ack;
+}
+
+void QkProtocol::processFrame(const QkFrame &frame)
+{
+    QkPacket::Builder::parse(frame, &m_packet);
+
+    if(m_packet.flags.ctrl & QK_PACKET_FLAGMASK_CTRL_FRAG)
+    {
+        m_packet.data.append(m_packet.data);
+
+        //FIXME create elapsedTimer to timeout lastFragment reception
+        if(!(m_packet.flags.ctrl & QK_PACKET_FLAGMASK_CTRL_LASTFRAG))
+            return;
+    }
+    processPacket();
+}
+
+void QkProtocol::processPacket()
+{
+
+    emit packetProcessed();
+}
+
+QkAck QkProtocol::waitForACK(int packetId, int timeout)
+{
+    QEventLoop loop;
+    QTimer loopTimer;
+    QElapsedTimer elapsedTimer;
+
+
+    connect(&loopTimer, SIGNAL(timeout()), &loop, SLOT(quit()));
+    connect(this, SIGNAL(packetProcessed()), &loop, SLOT(quit()));
+
+    elapsedTimer.start();
+
+    QkAck ack;
+    ack.type = QkAck::NACK;
+
+    while(ack.type == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
+    {
+        loopTimer.start(timeout);
+        loop.exec();
+        foreach(const QkAck &receivedAck, m_receivedAcks)
+        {
+            if(receivedAck.id == packetId)
+            {
+                ack = receivedAck;
+                break;
+            }
+        }
+    }
+    loopTimer.stop();
+
+    if(elapsedTimer.hasExpired(timeout))
+    {
+//        emit error(QK_ERR_COMM_TIMEOUT, timeout);
+    }
+
+    m_receivedAcks.removeOne(ack);
+
+    return ack;
+}
+
+//QkAck QkProtocol::waitForACK(int timeout)
+//{
+//    m_frameAck.type = QkAck::NACK;
+//    qDebug() << __FUNCTION__;
+
+//    QEventLoop loop;
+//    QTimer loopTimer;
+//    QElapsedTimer elapsedTimer;
+
+//    //loopTimer.setSingleShot(true);
+//    connect(&loopTimer, SIGNAL(timeout()), &loop, SLOT(quit()));
+//    connect(this, SIGNAL(packetProcessed()), &loop, SLOT(quit()));
+
+//    elapsedTimer.start();
+
+//    while(m_frameAck.type == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
+//    {
+//        loopTimer.start(100);
+//        loop.exec();
+//    }
+
+//    loopTimer.stop();
+
+//    if(elapsedTimer.hasExpired(timeout))
+//    {
+//        error(QK_ERR_COMM_TIMEOUT, timeout);
+//    }
+
+//    return m_frameAck;
+//}
+
 bool QkPacket::Builder::build(QkPacket *packet, const Descriptor &desc, QkBoard *board)
 {
-    //if(!validate(pd))
-        //return false;
-
     int i_data;
     QkDevice *device = 0;
 
@@ -147,9 +271,6 @@ bool QkPacket::Builder::validate(Descriptor *pd)
     default: ok = true;
     }
 
-    //if(!ok)
-        //qDebug() << "Qk::PacketBuilder::validate() BAD PACKET, code =" << Qk::Packet::codeFriendlyName(pd->code);
-
     return ok;
 }
 
@@ -176,8 +297,6 @@ void QkPacket::Builder::parse(const QkFrame &frame, QkPacket *packet)
 
 
 
-int QkPacket::m_nextId = 0;
-
 int QkPacket::requestId()
 {
     m_nextId = (m_nextId >= 255 ? 0 : m_nextId+1);
@@ -199,7 +318,6 @@ void QkPacket::calculateHeaderLenght()
     if(flags.ctrl & QK_PACKET_FLAGMASK_CTRL_ADDRESS)
       headerLength += SIZE_FLAGS_NETWORK;
 }
-
 
 QString QkPacket::codeFriendlyName()
 {

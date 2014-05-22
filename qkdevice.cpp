@@ -1,6 +1,5 @@
 #include "qkdevice.h"
 #include "qkcore.h"
-#include "qkpacket.h"
 
 #include <QDebug>
 #include <QMetaEnum>
@@ -151,7 +150,7 @@ int QkDevice::actuate(unsigned int id, QVariant value)
     descriptor.action_id = id;
 
     QkPacket::Builder::build(&packet, descriptor, this);
-    QkAck ack = m_qk->comm_sendPacket(&packet, true);
+    QkAck ack = m_qk->protocol()->sendPacket(&packet, true);
     if(ack.type != QkAck::OK)
         return -2;
 

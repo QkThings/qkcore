@@ -21,19 +21,18 @@ SOURCES += \
     qkdevice.cpp \
     qkboard.cpp \
     qknode.cpp \
-    qkpacket.cpp
+    qkprotocol.cpp
 
 HEADERS +=\
     qkcore.h \
     qkprotocol.h \
-    qklib_constants.h \
     ../utils/qkutils.h \
     qkcomm.h \
     qkdevice.h \
     qkboard.h \
     qknode.h \
-    qkpacket.h \
-    qkcore_global.h
+    qkcore_lib.h \
+    qkcore_constants.h
 
 unix:!symbian {
     maemo5 {

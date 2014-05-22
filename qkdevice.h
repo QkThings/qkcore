@@ -133,7 +133,7 @@ public:
     QVector<Action> actions();
     QVector<Event> events();
 
-    int actuate(unsigned int id, QVariant value);
+    int actuate(int id, QVariant value);
 
 protected:
     void setup();

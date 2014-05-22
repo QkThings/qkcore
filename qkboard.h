@@ -1,8 +1,8 @@
 #ifndef QKBOARD_H
 #define QKBOARD_H
 
-#include "qkcore_global.h"
-#include "qkpacket.h"
+#include "qkcore_lib.h"
+#include "qkprotocol.h"
 #include <QObject>
 #include <QVariant>
 #include <QVector>

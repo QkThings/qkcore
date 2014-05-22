@@ -1,5 +1,5 @@
-#ifndef QKCORE_GLOBAL_H
-#define QKCORE_GLOBAL_H
+#ifndef QKCORE_LIB_H
+#define QKCORE_LIB_H
 
 #include <QtCore/qglobal.h>
 
@@ -13,4 +13,4 @@
 #  define QKLIBSHARED_EXPORT Q_DECL_IMPORT
 #endif
 
-#endif // QKLIB_GLOBAL_H
+#endif // QKCORE_LIB_H
