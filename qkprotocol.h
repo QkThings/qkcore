@@ -23,7 +23,7 @@ typedef enum qk_error
 #include <stdint.h>
 
 #include <QObject>
-
+#include <QQueue>
 
 #define QK_COMM_WAKEUP      0x00
 #define QK_COMM_FLAG        0x55	// Flag
@@ -100,6 +100,8 @@ typedef enum qk_error
 
 class QkCore;
 class QkBoard;
+
+typedef QQueue<QkFrame>* QkFrameQueuePointer;
 
 class QKLIBSHARED_EXPORT QkFrame
 {
@@ -181,8 +183,11 @@ public:
     QkProtocol(QkCore *qk, QObject *parent = 0);
     QkAck ack() { return m_ack; }
 
+    QkFrameQueuePointer outputFrames() { return &m_outputFrames; }
+
 signals:
     void packetProcessed();
+    void outputFrameReady(QkFrameQueuePointer);
     void error(int errCode, int errArg);
 
 public slots:
@@ -200,6 +205,7 @@ private:
 
     QList<QkAck> m_receivedAcks;
     QkAck m_frameAck;
+    QQueue<QkFrame> m_outputFrames;
 };
 
 

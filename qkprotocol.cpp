@@ -43,16 +43,16 @@ QkProtocol::QkProtocol(QkCore *qk, QObject *parent) :
 
 QkAck QkProtocol::sendPacket(QkPacket *packet, bool wait, int retries)
 {
-    QByteArray frame;
 
-    frame.append(packet->flags.ctrl & 0xFF);
-    frame.append((packet->flags.ctrl >> 8) & 0xFF);
-    frame.append(packet->id);
-    frame.append(packet->code);
-    frame.append(packet->data);
+    QkFrame frame;
+    frame.data.append(packet->flags.ctrl & 0xFF);
+    frame.data.append((packet->flags.ctrl >> 8) & 0xFF);
+    frame.data.append(packet->id);
+    frame.data.append(packet->code);
+    frame.data.append(packet->data);
 
-    //m_framesToSend.enqueue(frame);
-    //emit comm_frameReady();
+    m_outputFrames.enqueue(frame);
+    emit outputFrameReady(&m_outputFrames);
 
     if(wait)
         return waitForACK(packet->id);

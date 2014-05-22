@@ -135,7 +135,7 @@ QVector<QkDevice::Event> QkDevice::events()
     return m_events;
 }
 
-int QkDevice::actuate(unsigned int id, QVariant value)
+int QkDevice::actuate(int id, QVariant value)
 {
     if(id >= m_actions.count())
         return -1;
