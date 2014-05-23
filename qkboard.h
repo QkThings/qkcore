@@ -2,39 +2,34 @@
 #define QKBOARD_H
 
 #include "qkcore_lib.h"
+#include "qkcore_constants.h"
 #include "qkprotocol.h"
+#include "qkutils.h"
 #include <QObject>
 #include <QVariant>
 #include <QVector>
 
 class QkCore;
-
-namespace Qk
-{
-    class Info;
-}
-
 class QkNode;
 class QkCore;
 
-class QKLIBSHARED_EXPORT Qk::Info
+using namespace QkUtils;
+
+
+class QKLIBSHARED_EXPORT QkInfo
 {
 public:
-    Info()
+    QkInfo()
     {
-        version_major = 0;
-        version_minor = 0;
-        version_patch = 0;
+        version = Version(0,0,0);
         baudRate = 0;
         flags = 0;
     }
 
-    int version_major;
-    int version_minor;
-    int version_patch;
+    Version version;
     int baudRate;
     int flags;
-    QString versionString();
+    int features;
 };
 
 class QKLIBSHARED_EXPORT QkBoard : public QObject
@@ -82,7 +77,7 @@ public:
 
     void _setName(const QString &name);
     void _setFirmwareVersion(int version);
-    void _setQkInfo(const Qk::Info &qkInfo);
+    void _setQkInfo(const QkInfo &qkInfo);
     void _setConfigs(QVector<Config> configs);
     void setConfigValue(int idx, QVariant value);
 
@@ -92,7 +87,7 @@ public:
     int address();
     QString name();
     int firmwareVersion();
-    Qk::Info qkInfo();
+    QkInfo qkInfo();
     QVector<Config> configs();
 
 protected:
@@ -102,7 +97,7 @@ protected:
 private:
     QString m_name;
     int m_fwVersion;
-    Qk::Info m_qkInfo;
+    QkInfo m_qkInfo;
     QVector<Config> m_configs;
     int m_filledInfoMask;
 };

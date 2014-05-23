@@ -2,10 +2,9 @@
 #define QKCORE_LIB_H
 
 #include <QtCore/qglobal.h>
+#include "qkutils.h"
 
-#define QKLIB_VERSION_MAJOR 0
-#define QKLIB_VERSION_MINOR 0
-#define QKLIB_VERSION_PATCH 1
+const QkUtils::Version QKCORE_LIB_VERSION(0, 0, 1);
 
 #if defined(QKLIB_LIBRARY)
 #  define QKLIBSHARED_EXPORT Q_DECL_EXPORT

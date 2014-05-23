@@ -23,7 +23,7 @@ void QkBoard::_setFirmwareVersion(int version)
     m_fwVersion = version;
 }
 
-void QkBoard::_setQkInfo(const Qk::Info &qkInfo)
+void QkBoard::_setQkInfo(const QkInfo &qkInfo)
 {
     m_qkInfo = qkInfo;
 }
@@ -67,7 +67,7 @@ QVariant QkBoard::Config::value()
     return m_value;
 }
 
-Qk::Info QkBoard::qkInfo()
+QkInfo QkBoard::qkInfo()
 {
     return m_qkInfo;
 }
@@ -107,34 +107,33 @@ QkAck QkBoard::update()
 {
     int i;
     QkAck ack;
-    QkPacket p;
-    QkPacket::Descriptor desc;
-    desc.boardType = m_type;
-    desc.address = address();
+    QkPacket::Descriptor pd;
 
-    desc.code = QK_PACKET_CODE_SETNAME;
-    desc.setname_str = name();
-    QkPacket::Builder::build(&p, desc, this);
-    ack = m_qk->protocol()->sendPacket(&p, true);
-    if(ack.type != QkAck::OK) {
-        qDebug() << "failed to set name" << ack.type;
+    pd.board = this;
+    pd.boardType = m_type;
+    pd.address = address();
+
+    pd.code = QK_PACKET_CODE_SETNAME;
+    pd.setname_str = name();
+    ack = m_qk->protocol()->sendPacket(pd);
+    if(ack.result != QkAck::OK)
+    {
+        qDebug() << "failed to set name" << ack.result;
         return ack;
     }
 
-    desc.code = QK_PACKET_CODE_SETCONFIG;
+    pd.code = QK_PACKET_CODE_SETCONFIG;
     for(i = 0; i < configs().count(); i++)
     {
-        desc.setconfig_idx = i;
-        QkPacket::Builder::build(&p, desc, this);
-        ack = m_qk->protocol()->sendPacket(&p, true);
-        if(ack.type != QkAck::OK)
+        pd.setconfig_idx = i;
+        ack = m_qk->protocol()->sendPacket(pd);
+        if(ack.result != QkAck::OK)
             return ack;
     }
 
-    desc.code = QK_PACKET_CODE_SETSAMP;
-    QkPacket::Builder::build(&p, desc, this);
-    ack = m_qk->protocol()->sendPacket(&p, true);
-    if(ack.type != QkAck::OK)
+    pd.code = QK_PACKET_CODE_SETSAMP;
+    ack = m_qk->protocol()->sendPacket(pd);
+    if(ack.result != QkAck::OK)
         return ack;
 
     return ack;
@@ -142,11 +141,9 @@ QkAck QkBoard::update()
 
 QkAck QkBoard::save()
 {
-    QkPacket p;
-    QkPacket::Descriptor desc;
-    desc.boardType = m_type;
-    desc.address = address();
-    desc.code = QK_PACKET_CODE_SAVE;
-    QkPacket::Builder::build(&p, desc);
-    return m_qk->protocol()->sendPacket(&p);
+    QkPacket::Descriptor pd;
+    pd.boardType = m_type;
+    pd.address = address();
+    pd.code = QK_PACKET_CODE_SAVE;
+    return m_qk->protocol()->sendPacket(pd, false);
 }

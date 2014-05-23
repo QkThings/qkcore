@@ -80,11 +80,6 @@ void QkDevice::_setDataValue(int idx, float value, quint64 timestamp)
 
 void QkDevice::_setDataLabel(int idx, const QString &label)
 {
-    if(idx < 0 || idx > m_data.size())
-    {
-        qWarning() << __FUNCTION__ << "data index out of bounds";
-        m_data.resize(idx+1);
-    }
     m_data[idx]._setLabel(label);
 }
 
@@ -150,8 +145,8 @@ int QkDevice::actuate(int id, QVariant value)
     descriptor.action_id = id;
 
     QkPacket::Builder::build(&packet, descriptor, this);
-    QkAck ack = m_qk->protocol()->sendPacket(&packet, true);
-    if(ack.type != QkAck::OK)
+    QkAck ack = m_qk->protocol()->sendPacket(descriptor, true);
+    if(ack.result != QkAck::OK)
         return -2;
 
     return 0;
