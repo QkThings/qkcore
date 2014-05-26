@@ -144,8 +144,8 @@ int QkDevice::actuate(int id, QVariant value)
     descriptor.code = QK_PACKET_CODE_ACTUATE;
     descriptor.action_id = id;
 
-    QkPacket::Builder::build(&packet, descriptor, this);
-    QkAck ack = m_qk->protocol()->sendPacket(descriptor, true);
+    QkPacket::Builder::build(&packet, descriptor);
+    QkAck ack = m_qk->protocol()->sendPacket(descriptor);
     if(ack.result != QkAck::OK)
         return -2;
 

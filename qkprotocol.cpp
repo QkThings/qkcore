@@ -11,8 +11,7 @@
 
 #include <QDebug>
 #include <QDateTime>
-#include <QMutexLocker>
-#include <QMutex>
+#include <QThread>
 #include <QEventLoop>
 #include <QElapsedTimer>
 #include <QTimer>
@@ -37,13 +36,47 @@ QkAck QkAck::fromInt(int ack)
     return res;
 }
 
-QkProtocol::QkProtocol(QkCore *qk, QObject *parent) :
+QkProtocolWorker::QkProtocolWorker(QObject *parent) :
     QObject(parent)
 {
-    m_qk = qk;
+    m_quit = false;
 }
 
-void QkProtocol::processFrame(const QkFrame &frame)
+void QkProtocolWorker::quit()
+{
+    m_quit = true;
+}
+
+void QkProtocolWorker::run()
+{
+    QkFrame frame;
+
+    while(!m_quit)
+    {
+        if(m_outputPacketsQueue.count() > 0)
+        {
+            QkPacket packet = m_outputPacketsQueue.dequeue();
+            frame.data.clear();
+            frame.data.append(packet.flags.ctrl & 0xFF);
+            frame.data.append((packet.flags.ctrl >> 8) & 0xFF);
+            frame.data.append(packet.id);
+            frame.data.append(packet.code);
+            frame.data.append(packet.data);
+
+            emit frameReady(frame);
+            waitForACK(packet.id);
+        }
+    }
+
+    emit finished();
+}
+
+void QkProtocolWorker::sendPacket(QkPacket packet)
+{
+    m_outputPacketsQueue.enqueue(packet);
+}
+
+void QkProtocolWorker::parseFrame(QkFrame frame)
 {
     static QkPacket packet;
     static QkPacket fragment;
@@ -63,9 +96,119 @@ void QkProtocol::processFrame(const QkFrame &frame)
         else
             return;
     }
-
-    processPacket(&packet);
+    processPacket(packet);
+    emit packetReady(packet);
 }
+
+void QkProtocolWorker::processPacket(QkPacket packet)
+{
+    QkPacket *p = &packet;
+    QkAck ack;
+
+    int i_data = 0;
+    switch(p->code)
+    {
+    case QK_PACKET_CODE_ACK:
+        ack.id = getValue(1, &i_data, p->data);
+        ack.code = getValue(1, &i_data, p->data);
+        ack.result = getValue(1, &i_data, p->data);
+        if(ack.result == QkAck::ERROR)
+        {
+            ack.err = getValue(1, &i_data, p->data);
+            ack.arg = getValue(1, &i_data, p->data);
+        }
+        m_acks.prepend(ack);
+        break;
+    default: ;
+    }
+}
+
+QkAck QkProtocolWorker::waitForACK(int packetId, int timeout)
+{
+    QEventLoop loop;
+    QTimer loopTimer;
+    QElapsedTimer elapsedTimer;
+    QkAck ack;
+
+    connect(&loopTimer, SIGNAL(timeout()), &loop, SLOT(quit()));
+    connect(this, SIGNAL(packetProcessed()), &loop, SLOT(quit()));
+
+    elapsedTimer.start();
+
+    while(ack.result == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
+    {
+        loopTimer.start(20);
+        loop.exec();
+    }
+
+    loopTimer.stop();
+    if(elapsedTimer.hasExpired(timeout))
+    {
+        qDebug() << "timeout!";
+    }
+
+    return ack;
+}
+
+//void QkProtocolWorker::slotOutputFrameReady(QkFrameQueue *queue)
+//{
+//    while(true)
+//    {
+//        QkFrame outputFrame;
+//        m_protocol->outputFramesLock()->lockForRead();
+//        if(!queue->isEmpty())
+//             outputFrame = queue>dequeue();
+//        else
+//        {
+//    m_protocol->outputFramesLock()->unlock();
+//    }
+//    emit outputFrameReady(outputFrame);
+//}
+
+QkProtocol::QkProtocol(QkCore *qk, QObject *parent) :
+    QObject(parent)
+{
+    m_qk = qk;
+
+    m_workerThread = new QThread(this);
+    m_protocolWorker = new QkProtocolWorker();
+    m_protocolWorker->moveToThread(m_workerThread);
+
+    connect(this, SIGNAL(packetReady(QkPacket)),
+            m_protocolWorker, SLOT(sendPacket(QkPacket)));
+
+    connect(m_protocolWorker, SIGNAL(packetReady(QkPacket)),
+            this, SLOT(processPacket(QkPacket)));
+
+}
+
+
+
+//void QkProtocol::processFrame(const QkFrame &frame)
+//{
+//    static QkPacket packet;
+//    static QkPacket fragment;
+
+//    QkPacket::Builder::parse(frame, &packet);
+
+//    if(packet.flags.ctrl & QK_PACKET_FLAGMASK_CTRL_FRAG)
+//    {
+//        fragment.data.append(packet.data);
+
+//        //FIXME create elapsedTimer to timeout lastFragment reception
+//        if(packet.flags.ctrl & QK_PACKET_FLAGMASK_CTRL_LASTFRAG)
+//        {
+//            packet.data = fragment.data;
+//            fragment.data.clear();
+//        }
+//        else
+//            return;
+//    }
+
+//    processPacket(&packet);
+//}
+
+
 
 QkAck QkProtocol::sendPacket(QkPacket::Descriptor descriptor, bool wait, int timeout, int retries)
 {
@@ -73,20 +216,27 @@ QkAck QkProtocol::sendPacket(QkPacket::Descriptor descriptor, bool wait, int tim
     QkPacket packet;
     QkPacket::Builder::build(&packet, descriptor);
 
-    QkFrame frame;
-    frame.data.append(packet.flags.ctrl & 0xFF);
-    frame.data.append((packet.flags.ctrl >> 8) & 0xFF);
-    frame.data.append(packet.id);
-    frame.data.append(packet.code);
-    frame.data.append(packet.data);
-
     do
     {
-        m_frames.enqueue(frame);
-        emit frameReady(&m_frames);
+        emit packetReady(packet);
         if(wait)
             ack = waitForACK(packet.id, timeout);
     } while(wait && retries-- && ack.result == QkAck::NACK);
+
+//    QkFrame frame;
+//    frame.data.append(packet.flags.ctrl & 0xFF);
+//    frame.data.append((packet.flags.ctrl >> 8) & 0xFF);
+//    frame.data.append(packet.id);
+//    frame.data.append(packet.code);
+//    frame.data.append(packet.data);
+
+//    do
+//    {
+//        //m_outputFrames.enqueue(frame);
+//        //emit outputFrameReady(&m_outputFrames);
+//        if(wait)
+//            ack = waitForACK(packet.id, timeout);
+//    } while(wait && retries-- && ack.result == QkAck::NACK);
 
     return ack;
 }
@@ -102,10 +252,9 @@ QkAck QkProtocol::waitForACK(int packetId, int timeout)
 
     elapsedTimer.start();
 
-    QkAck waitAck;
-    waitAck.result = QkAck::NACK;
+    QkAck ack;
 
-    while(waitAck.result == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
+    while(ack.result == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
     {
         loopTimer.start(50);
         loop.exec();
@@ -113,7 +262,7 @@ QkAck QkProtocol::waitForACK(int packetId, int timeout)
         {
             if(receivedAck.id == packetId)
             {
-                waitAck = receivedAck;
+                ack = receivedAck;
                 break;
             }
         }
@@ -122,12 +271,12 @@ QkAck QkProtocol::waitForACK(int packetId, int timeout)
 
     if(elapsedTimer.hasExpired(timeout))
     {
-//        emit error(QK_ERR_COMM_TIMEOUT, timeout);
+        qDebug() << "QkProtocol timeout!";
     }
 
-    m_acks.removeOne(waitAck);
+    m_acks.removeOne(ack);
 
-    return waitAck;
+    return ack;
 }
 
 //QkAck QkProtocol::waitForACK(int timeout)
@@ -162,7 +311,7 @@ QkAck QkProtocol::waitForACK(int packetId, int timeout)
 //}
 
 
-void QkProtocol::processPacket(QkPacket *packet)
+void QkProtocol::processPacket(QkPacket packet)
 {
     QkBoard *selBoard = 0;
     QkNode *selNode = 0;
@@ -170,7 +319,7 @@ void QkProtocol::processPacket(QkPacket *packet)
     QkDevice *selDevice = 0;
     bool boardCreated = false;
 
-    QkPacket *p = packet;
+    QkPacket *p = &packet;
     QkCore *qk = m_qk;
 
     qDebug() << __FUNCTION__ << "addr =" << p->address << "code =" << p->codeFriendlyName();
@@ -547,7 +696,7 @@ bool QkPacket::Builder::build(QkPacket *packet, const Descriptor &desc)
     packet->code = desc.code;
     packet->data.clear();
 
-    QkBoard *board = desc.board,
+    QkBoard *board = desc.board;
 
     if(board != 0)
     {

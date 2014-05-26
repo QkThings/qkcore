@@ -22,6 +22,7 @@ typedef enum qk_error
 
 #include <QObject>
 #include <QQueue>
+#include <QReadWriteLock>
 
 #define QK_COMM_WAKEUP      0x00
 #define QK_COMM_FLAG        0x55	// Flag
@@ -98,7 +99,7 @@ typedef enum qk_error
 
 class QkCore;
 class QkBoard;
-
+class QkProtocol;
 
 class QKLIBSHARED_EXPORT QkFrame
 {
@@ -127,7 +128,7 @@ public:
     };
     class QKLIBSHARED_EXPORT Builder {
     public:
-        static bool build(QkPacket *packet, const Descriptor &desc, QkBoard *board = 0);
+        static bool build(QkPacket *packet, const Descriptor &desc);
         static bool validate(Descriptor *pd);
         static void parse(const QkFrame &frame, QkPacket *packet);
     };
@@ -155,6 +156,8 @@ private:
     static int m_nextId;
 };
 
+typedef QQueue<QkPacket> QkPacketQueue;
+
 class QKLIBSHARED_EXPORT QkAck
 {
 public:
@@ -163,6 +166,11 @@ public:
         OK,
         ERROR
     };
+    QkAck()
+    {
+        result = NACK;
+    }
+
     static QkAck fromInt(int ack);
     int id;
     int result;
@@ -176,15 +184,49 @@ public:
     }
 };
 
+class QkProtocolWorker : public QObject
+{
+    Q_OBJECT
+public:
+    QkProtocolWorker(QObject *parent = 0);
+
+signals:
+    void finished();
+    void frameReady(QkFrame);
+    void packetReady(QkPacket);
+
+public slots:
+    void run();
+    void quit();
+    void sendPacket(QkPacket packet);
+    void parseFrame(QkFrame frame);
+
+private:
+    QkAck waitForACK(int packetId, int timeout = 2000);
+    void processPacket(QkPacket packet);
+    QkPacketQueue m_outputPacketsQueue;
+    QList<QkAck> m_acks;
+    bool m_quit;
+};
+
 class QkProtocol : public QObject
 {
     Q_OBJECT
 public:
     QkProtocol(QkCore *qk, QObject *parent = 0);
 //    QkAck ack() { return m_ack; }
+    //QkFrameQueue *outputFramesQueue() { return &m_outputFramesQueue; }
+    //QReadWriteLock* outputFramesLock() { return &m_outputFramesLock; }
+
+    QkAck sendPacket(QkPacket::Descriptor descriptor,
+                     bool wait = true,
+                     int timeout = 2000,
+                     int retries = 0);
+
+    QkProtocolWorker *worker() { return m_protocolWorker; }
 
 signals:
-    void frameReady(QkFrameQueue*);
+    //void outputFrameReady(QkFrameQueue*);
     //void infoChanged(int address, QkBoard::Type boardType, int mask); // ??
     void commFound(int address);
     void commUpdated(int address);
@@ -193,27 +235,29 @@ signals:
     void dataReceived(int address);
     void eventReceived(int address);
     void debugReceived(int address, QString str);
+    void packetReady(QkPacket);
     void packetProcessed();
     void ack(QkAck ack);
     void error(int errCode, int errArg);
 
 public slots:
-    void processFrame(const QkFrame &frame);
-    QkAck sendPacket(QkPacket::Descriptor descriptor,
-                     bool wait = true,
-                     int timeout = 2000,
-                     int retries = 0);
+    //void processFrame(const QkFrame &frame);
+    void processPacket(QkPacket packet);
+
+
 
 private:
     void setupSignals();
-    void processPacket(QkPacket *packet);
     QkAck waitForACK(int packetId, int timeout = 2000);
     //QkAck waitForACK(int timeout = 2000);
 
     QkCore *m_qk;
     QList<QkAck> m_acks;
-    QkFrameQueue m_frames;
 
+    QThread *m_workerThread;
+    QkProtocolWorker *m_protocolWorker;
+//    QkFrameQueue m_outputFramesQueue;
+//    QReadWriteLock m_outputFramesLock;
 };
 
 
