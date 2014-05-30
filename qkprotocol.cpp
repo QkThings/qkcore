@@ -16,7 +16,8 @@
 #include <QElapsedTimer>
 #include <QTimer>
 #include <QStringList>
-
+#include <QMutex>
+#include <QWaitCondition>
 
 using namespace QkUtils;
 
@@ -50,12 +51,20 @@ void QkProtocolWorker::quit()
 void QkProtocolWorker::run()
 {
     QkFrame frame;
+    QEventLoop eventLoop;
 
     while(!m_quit)
     {
+        eventLoop.processEvents();
+
+        m_mutex.lock();
         if(m_outputPacketsQueue.count() > 0)
         {
             QkPacket packet = m_outputPacketsQueue.dequeue();
+            m_mutex.unlock();
+
+            qDebug() << "sendPacket dequeue";
+
             frame.data.clear();
             frame.data.append(packet.flags.ctrl & 0xFF);
             frame.data.append((packet.flags.ctrl >> 8) & 0xFF);
@@ -66,14 +75,25 @@ void QkProtocolWorker::run()
             emit frameReady(frame);
             waitForACK(packet.id);
         }
+        else
+            m_mutex.unlock();
     }
+    eventLoop.processEvents();
 
     emit finished();
+
+    eventLoop.processEvents();
 }
 
 void QkProtocolWorker::sendPacket(QkPacket packet)
 {
+    QMutexLocker locker(&m_mutex);
+
+    qDebug() << "sendPacket enqueue";
     m_outputPacketsQueue.enqueue(packet);
+
+    if(m_outputPacketsQueue.count() > 6)
+        qDebug() << "OUTPUT PACKETS QUEUE IS GETTING FULL" << m_outputPacketsQueue.count();
 }
 
 void QkProtocolWorker::parseFrame(QkFrame frame)
@@ -131,7 +151,8 @@ QkAck QkProtocolWorker::waitForACK(int packetId, int timeout)
     QkAck ack;
 
     connect(&loopTimer, SIGNAL(timeout()), &loop, SLOT(quit()));
-    connect(this, SIGNAL(packetProcessed()), &loop, SLOT(quit()));
+    connect(this, SIGNAL(packetReady(QkPacket)), &loop, SLOT(quit()));
+//    connect(this, SIGNAL(packetProcessed()), &loop, SLOT(quit()));
 
     elapsedTimer.start();
 
@@ -139,12 +160,23 @@ QkAck QkProtocolWorker::waitForACK(int packetId, int timeout)
     {
         loopTimer.start(20);
         loop.exec();
+
+        foreach(const QkAck &receivedAck, m_acks)
+        {
+            if(receivedAck.id == packetId)
+            {
+                ack = receivedAck;
+                break;
+            }
+        }
     }
+
+    m_acks.removeOne(ack);
 
     loopTimer.stop();
     if(elapsedTimer.hasExpired(timeout))
     {
-        qDebug() << "timeout!";
+        qDebug() << "QkProtocolWorker timeout!";
     }
 
     return ack;
@@ -174,12 +206,16 @@ QkProtocol::QkProtocol(QkCore *qk, QObject *parent) :
     m_protocolWorker = new QkProtocolWorker();
     m_protocolWorker->moveToThread(m_workerThread);
 
+    connect(m_workerThread, SIGNAL(started()), m_protocolWorker, SLOT(run()), Qt::DirectConnection);
+    connect(m_protocolWorker, SIGNAL(finished()), m_workerThread, SLOT(quit()), Qt::DirectConnection);
+
     connect(this, SIGNAL(packetReady(QkPacket)),
-            m_protocolWorker, SLOT(sendPacket(QkPacket)));
+            m_protocolWorker, SLOT(sendPacket(QkPacket)), Qt::DirectConnection);
 
     connect(m_protocolWorker, SIGNAL(packetReady(QkPacket)),
-            this, SLOT(processPacket(QkPacket)));
+            this, SLOT(processPacket(QkPacket)), Qt::DirectConnection);
 
+    m_workerThread->start();
 }
 
 
@@ -218,6 +254,7 @@ QkAck QkProtocol::sendPacket(QkPacket::Descriptor descriptor, bool wait, int tim
 
     do
     {
+        qDebug() << "sendPacket" << packet.codeFriendlyName();
         emit packetReady(packet);
         if(wait)
             ack = waitForACK(packet.id, timeout);
@@ -262,6 +299,7 @@ QkAck QkProtocol::waitForACK(int packetId, int timeout)
         {
             if(receivedAck.id == packetId)
             {
+                elapsedTimer.restart();
                 ack = receivedAck;
                 break;
             }
@@ -278,38 +316,6 @@ QkAck QkProtocol::waitForACK(int packetId, int timeout)
 
     return ack;
 }
-
-//QkAck QkProtocol::waitForACK(int timeout)
-//{
-//    m_frameAck.type = QkAck::NACK;
-//    qDebug() << __FUNCTION__;
-
-//    QEventLoop loop;
-//    QTimer loopTimer;
-//    QElapsedTimer elapsedTimer;
-
-//    //loopTimer.setSingleShot(true);
-//    connect(&loopTimer, SIGNAL(timeout()), &loop, SLOT(quit()));
-//    connect(this, SIGNAL(packetProcessed()), &loop, SLOT(quit()));
-
-//    elapsedTimer.start();
-
-//    while(m_frameAck.type == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
-//    {
-//        loopTimer.start(100);
-//        loop.exec();
-//    }
-
-//    loopTimer.stop();
-
-//    if(elapsedTimer.hasExpired(timeout))
-//    {
-//        error(QK_ERR_COMM_TIMEOUT, timeout);
-//    }
-
-//    return m_frameAck;
-//}
-
 
 void QkProtocol::processPacket(QkPacket packet)
 {
@@ -400,7 +406,7 @@ void QkProtocol::processPacket(QkPacket packet)
             receivedAck.arg = getValue(1, &i_data, p->data);
         }
         m_acks.prepend(receivedAck);
-        qDebug() << "ACK" << "id" << receivedAck.id << "code" << receivedAck.code << "type" << receivedAck.result;
+        qDebug() << "ACK" << "id" << receivedAck.id << "code" << receivedAck.code << "result" << receivedAck.result;
         break;
     case QK_PACKET_CODE_INFOQK:
         qkInfo.version = Version(getValue(1, &i_data, p->data),
@@ -420,13 +426,11 @@ void QkProtocol::processPacket(QkPacket packet)
         break;
     case QK_PACKET_CODE_INFOCONFIG:
         ncfg = getValue(1, &i_data, p->data);
-        qDebug() << "ncfg" << ncfg;
         configs = QVector<QkBoard::Config>(ncfg);
         for(i=0; i<ncfg; i++)
         {
             configType = (QkBoard::Config::Type) getValue(1, &i_data, p->data);
             label = getString(QK_LABEL_SIZE, &i_data, p->data);
-            qDebug() << "config label" << label;
             switch(configType)
             {
             case QkBoard::Config::ctBool:
@@ -492,11 +496,9 @@ void QkProtocol::processPacket(QkPacket packet)
         ndat = getValue(1, &i_data, p->data);
         data = QVector<QkDevice::Data>(ndat);
         dataType = (QkDevice::Data::Type)getValue(1, &i_data, p->data);
-        qDebug() << "ndat =" << ndat;
         for(i=0; i<ndat; i++)
         {
             data[i]._setLabel(getString(QK_LABEL_SIZE, &i_data, p->data));
-            qDebug() << QString().sprintf("data[%d]=%s",i,data[i].label().toStdString().data());
         }
         selDevice->_setDataType(dataType);
         selDevice->_setData(data);
@@ -515,7 +517,6 @@ void QkProtocol::processPacket(QkPacket packet)
     case QK_PACKET_CODE_INFOACTION:
         nact = getValue(1, &i_data, p->data);
         actions = QVector<QkDevice::Action>(nact);
-        qDebug() << "nact" << nact;
         for(i = 0; i < nact; i++)
         {
             actions[i]._setType((QkDevice::Action::Type)getValue(1, &i_data, p->data));
@@ -648,23 +649,6 @@ void QkProtocol::processPacket(QkPacket packet)
         }
 
         break;
-//    case QK_PACKET_CODE_SEQEND:
-//        qDebug() << "m_comm.ack.arg" << QString().sprintf("%02X", m_protocol.ack.arg);
-//        switch(m_protocol.ack.arg)
-//        {
-//        case QK_PACKET_CODE_COMMFOUND:
-//            qDebug() << "QkModule found:" << QString().sprintf("%04X",selNode->address());
-//            emit moduleFound(selNode->address());
-//            break;
-//        case QK_PACKET_CODE_DEVICEFOUND:
-//            qDebug() << "QkDevice found:" << QString().sprintf("%04X",selNode->address());
-//            emit deviceFound(selNode->address());
-//            break;
-//        case QK_PACKET_CODE_GETDEVICE:
-//            emit deviceUpdated(selNode->address());
-//            break;
-//        }
-//        break;
     case QK_PACKET_CODE_DATA:
         emit dataReceived(selNode->address());
         break;
@@ -687,6 +671,8 @@ void QkProtocol::processPacket(QkPacket packet)
 
 bool QkPacket::Builder::build(QkPacket *packet, const Descriptor &desc)
 {
+    qDebug() << "build packet with code" << QString().sprintf("%02X", desc.code & 0xFF);
+
     int i_data;
     QkDevice *device = 0;
 
@@ -705,7 +691,8 @@ bool QkPacket::Builder::build(QkPacket *packet, const Descriptor &desc)
         case QkBoard::btDevice:
             device = (QkDevice *) board;
             break;
-        default: qDebug() << "cant build packets for that board type (yet!)";
+        default:
+            qDebug() << "cant build packets for that board type";
         }
     }
 
@@ -751,26 +738,19 @@ bool QkPacket::Builder::build(QkPacket *packet, const Descriptor &desc)
             fillValue(configValue.toDateTime().time().second(), 1, &i_data, packet->data);
             break;
         case QkBoard::Config::ctTime:
-            qDebug() << configValue;
             fillValue(configValue.toTime().hour(), 1, &i_data, packet->data);
             fillValue(configValue.toTime().minute(), 1, &i_data, packet->data);
             fillValue(configValue.toTime().second(), 1, &i_data, packet->data);
             break;
         case QkBoard::Config::ctCombo:
-            qDebug() << "Config::ctCombo <-- TODO";
+            qDebug() << "Config::ctCombo";
             break;
         default:
-            qDebug() << "WARNING: Unkown config type" << __LINE__ << __FILE__;
+            qDebug() << "Config type unknown";
         }
         break;
     case QK_PACKET_CODE_SETSAMP:
         sampInfo = device->samplingInfo();
-        qDebug() << "SETSAMP";
-        qDebug() << "frequency" << sampInfo.frequency;
-        qDebug() << "mode" << sampInfo.mode;
-        qDebug() << "clock" << sampInfo.triggerClock;
-        qDebug() << "scaler" << sampInfo.triggerScaler;
-        qDebug() << "N" << sampInfo.N;
         fillValue(sampInfo.frequency, 4, &i_data, packet->data);
         fillValue(sampInfo.mode, 1, &i_data, packet->data);
         fillValue((int)(sampInfo.triggerClock), 1, &i_data, packet->data);

@@ -23,6 +23,8 @@ typedef enum qk_error
 #include <QObject>
 #include <QQueue>
 #include <QReadWriteLock>
+#include <QMutex>
+#include <QWaitCondition>
 
 #define QK_COMM_WAKEUP      0x00
 #define QK_COMM_FLAG        0x55	// Flag
@@ -108,6 +110,7 @@ public:
     quint64 timestamp;
 };
 
+Q_DECLARE_METATYPE(QkFrame)
 typedef QQueue<QkFrame> QkFrameQueue;
 
 class QKLIBSHARED_EXPORT QkPacket
@@ -116,6 +119,10 @@ public:
     class Descriptor
     {
     public:
+        Descriptor()
+        {
+            board = 0;
+        }
         uint64_t address;
         uint8_t  code;
         uint8_t  boardType;
@@ -156,6 +163,7 @@ private:
     static int m_nextId;
 };
 
+Q_DECLARE_METATYPE(QkPacket)
 typedef QQueue<QkPacket> QkPacketQueue;
 
 class QKLIBSHARED_EXPORT QkAck
@@ -207,6 +215,9 @@ private:
     QkPacketQueue m_outputPacketsQueue;
     QList<QkAck> m_acks;
     bool m_quit;
+
+    QMutex m_mutex;
+    QWaitCondition m_condition;
 };
 
 class QkProtocol : public QObject

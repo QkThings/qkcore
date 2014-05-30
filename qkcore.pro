@@ -21,7 +21,9 @@ SOURCES += \
     qkdevice.cpp \
     qkboard.cpp \
     qknode.cpp \
-    qkprotocol.cpp
+    qkprotocol.cpp \
+    qkconnect.cpp \
+    qkconnserial.cpp
 
 HEADERS +=\
     qkcore.h \
@@ -32,7 +34,9 @@ HEADERS +=\
     qkboard.h \
     qknode.h \
     qkcore_lib.h \
-    qkcore_constants.h
+    qkcore_constants.h \
+    qkconnserial.h \
+    qkconnect.h
 
 unix:!symbian {
     maemo5 {

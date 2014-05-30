@@ -20,6 +20,9 @@ using namespace QkUtils;
 QkCore::QkCore(QObject *parent) :
     QObject(parent)
 {
+    qRegisterMetaType<QkFrame>("QkFrame");
+    qRegisterMetaType<QkPacket>("QkPacket");
+
     m_protocol = new QkProtocol(this, this);
     m_nodes.clear();
     m_running = false;
@@ -42,8 +45,8 @@ QkAck QkCore::hello()
     pd.address = 0;
     pd.code = QK_PACKET_CODE_HELLO;
 
-    const int timeout = 150;
-    const int retries = 10;
+    const int timeout = 500;
+    const int retries = 4;
     return m_protocol->sendPacket(pd, true, timeout, retries);
 }
 

@@ -132,20 +132,23 @@ QVector<QkDevice::Event> QkDevice::events()
 
 int QkDevice::actuate(int id, QVariant value)
 {
+    qDebug() << __FUNCTION__;
     if(id >= m_actions.count())
         return -1;
 
     m_actions[id]._setValue(value);
 
     QkPacket packet;
-    QkPacket::Descriptor descriptor;
+    QkPacket::Descriptor desc;
 
-    descriptor.boardType = m_type;
-    descriptor.code = QK_PACKET_CODE_ACTUATE;
-    descriptor.action_id = id;
+    desc.boardType = m_type;
+    desc.board = this;
 
-    QkPacket::Builder::build(&packet, descriptor);
-    QkAck ack = m_qk->protocol()->sendPacket(descriptor);
+    desc.code = QK_PACKET_CODE_ACTUATE;
+    desc.action_id = id;
+
+    QkPacket::Builder::build(&packet, desc);
+    QkAck ack = m_qk->protocol()->sendPacket(desc);
     if(ack.result != QkAck::OK)
         return -2;
 
