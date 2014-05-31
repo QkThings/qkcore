@@ -133,12 +133,34 @@ public:
         int setconfig_idx;
         int action_id;
     };
+    class Transmission
+    {
+    public:
+        Transmission()
+        {
+            waitACK = true;
+            timeout = 500;
+            retries = 0;
+        }
+        bool waitACK;
+        int timeout;
+        int retries;
+    };
+
     class QKLIBSHARED_EXPORT Builder {
     public:
         static bool build(QkPacket *packet, const Descriptor &desc);
         static bool validate(Descriptor *pd);
         static void parse(const QkFrame &frame, QkPacket *packet);
     };
+
+    QkPacket()
+    {
+        address = 0;
+        flags.ctrl = 0;
+        flags.network = 0;
+        code = 0;
+    }
 
     int address;
     struct {
@@ -150,7 +172,9 @@ public:
     int checksum;
     int headerLength;
     int id;
+
     quint64 timestamp;
+    Transmission tx;
 
     QString codeFriendlyName();
     int source();

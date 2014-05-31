@@ -72,8 +72,15 @@ void QkProtocolWorker::run()
             frame.data.append(packet.code);
             frame.data.append(packet.data);
 
-            emit frameReady(frame);
-            waitForACK(packet.id);
+            QkAck ack;
+
+            do
+            {
+                emit frameReady(frame);
+                if(packet.tx.waitACK)
+                    ack = waitForACK(packet.id, packet.tx.timeout);
+            }
+            while(packet.tx.waitACK && packet.tx.retries-- && ack.result == QkAck::NACK);
         }
         else
             m_mutex.unlock();
@@ -92,7 +99,7 @@ void QkProtocolWorker::sendPacket(QkPacket packet)
 //    qDebug() << "sendPacket enqueue";
     m_outputPacketsQueue.enqueue(packet);
 
-    if(m_outputPacketsQueue.count() > 6)
+    if(m_outputPacketsQueue.count() > 8)
         qDebug() << "OUTPUT PACKETS QUEUE IS GETTING FULL" << m_outputPacketsQueue.count();
 }
 
@@ -252,13 +259,18 @@ QkAck QkProtocol::sendPacket(QkPacket::Descriptor descriptor, bool wait, int tim
     QkPacket packet;
     QkPacket::Builder::build(&packet, descriptor);
 
-    do
-    {
-        qDebug() << "sendPacket" << packet.codeFriendlyName() << QString().sprintf("code=%d id=%d", packet.code, packet.id);
-        emit packetReady(packet);
-        if(wait)
-            ack = waitForACK(packet.id, timeout);
-    } while(wait && retries-- && ack.result == QkAck::NACK);
+//    do
+//    {
+    qDebug() << "sendPacket" << packet.codeFriendlyName() << QString().sprintf("code=%d id=%d", packet.code, packet.id);
+
+    packet.tx.waitACK = wait;
+    packet.tx.timeout = timeout;
+    packet.tx.retries = retries;
+
+    emit packetReady(packet);
+    if(wait)
+        ack = waitForACK(packet.id, 3000);
+//    } while(wait && retries-- && ack.result == QkAck::NACK);
 
     return ack;
 }

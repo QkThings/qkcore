@@ -46,7 +46,7 @@ QkAck QkCore::hello()
     pd.address = 0;
     pd.code = QK_PACKET_CODE_HELLO;
 
-    const int timeout = 150;
+    const int timeout = 100;
     const int retries = 20;
     return m_protocol->sendPacket(pd, true, timeout, retries);
 }
