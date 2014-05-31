@@ -73,6 +73,7 @@ public:
     };
 
     QkConnection(QObject *parent = 0);
+    ~QkConnection();
 
     QkCore *qk() { return m_qk; }
     Descriptor descriptor() { return m_descriptor; }
@@ -91,7 +92,7 @@ signals:
     void disconnected(int);
 
 public slots:
-    bool open();
+    void open();
     void close();
 
 protected:

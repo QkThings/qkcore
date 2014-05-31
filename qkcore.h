@@ -21,6 +21,7 @@ class QkNode;
 class QkDevice;
 class QkComm;
 class QkPacket;
+class QkConnection;
 
 typedef QMap<int, QkNode*> QkNodeMap;
 
@@ -29,16 +30,24 @@ class QKLIBSHARED_EXPORT QkCore : public QObject
     Q_OBJECT
     friend class QkProtocol;
 public:
+    enum Status {
+        sSearching,
+        sStarted,
+        sStopped
+    };
 
-    QkCore(QObject *parent = 0);
+    QkCore(QkConnection *conn, QObject *parent = 0);
 
     static QString errorMessage(int errCode);
 
     QkNode* node(int address = 0);
     QkNodeMap nodes();
+    QkConnection *connection() { return m_conn; }
     QkProtocol* protocol() { return m_protocol; }
     bool isRunning();
 
+signals:
+    void status(QkCore::Status);
 
 public slots:
     QkAck hello();
@@ -52,6 +61,7 @@ private:
     bool m_running;
     QMap<int, QkNode*> m_nodes;
     QkProtocol *m_protocol;
+    QkConnection *m_conn;
 
 
 };

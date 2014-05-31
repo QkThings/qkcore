@@ -59,7 +59,7 @@ void QkConnSerialWorker::run()
             const QByteArray &frame = m_outputFramesQueue.dequeue().data;
             m_mutex.unlock();
 
-            qDebug() << "sendFrame dequeue";
+//            qDebug() << "sendFrame dequeue";
 
             int i;
             quint8 chBuf;

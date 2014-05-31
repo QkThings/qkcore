@@ -29,7 +29,7 @@ void QkConnWorker::quit()
 void QkConnWorker::sendFrame(const QkFrame &frame)
 {
     QMutexLocker locker(&m_mutex);
-    qDebug() << "sendFrame enqueue";
+//    qDebug() << "sendFrame enqueue";
     m_outputFramesQueue.enqueue(frame);
 }
 
@@ -41,6 +41,11 @@ QkConnection::QkConnection(QObject *parent) :
     m_id = QkConnection::nextId++;    
 }
 
+QkConnection::~QkConnection()
+{
+    close();
+}
+
 bool QkConnection::isConnected()
 {
     if(m_worker != 0)
@@ -48,16 +53,20 @@ bool QkConnection::isConnected()
     return false;
 }
 
-bool QkConnection::open()
+void QkConnection::open()
 {
-    m_workerThread->start();
+    if(m_workerThread != 0)
+        m_workerThread->start();
 }
 
 void QkConnection::close()
 {
-    m_worker->quit();
-    m_workerThread->quit();
-    m_workerThread->wait();
+    if(m_workerThread != 0 && m_worker != 0)
+    {
+        m_worker->quit();
+        m_workerThread->quit();
+        m_workerThread->wait();
+    }
 }
 
 bool QkConnection::Descriptor::operator==(Descriptor &other)
@@ -98,23 +107,13 @@ QkConnection* QkConnectionManager::defaultConnection()
 void QkConnectionManager::slotConnected(int id)
 {
     QkConnection *conn = connection(id);
-    if(conn == 0)
-        return;
 
-//    if(m_searchOnConnect)
-//    {
-//        QEventLoop eventLoop;
-//        QTimer timer;
-//        timer.setSingleShot(true);
-//        timer.setInterval(500);
-//        connect(&timer, SIGNAL(timeout()), &eventLoop, SLOT(quit()));
-//        timer.start();
-//        eventLoop.exec();
-
-//        qDebug() << "SEARCH ON CONNECT";
-//        if(conn->qk()->hello().result == QkAck::OK)
-//            conn->qk()->search();
-//    }
+    if(m_searchOnConnect)
+    {
+        QkAck ack = conn->qk()->hello();
+        if(ack.result != QkAck::NACK)
+            conn->qk()->search();
+    }
 }
 
 QkConnection* QkConnectionManager::addConnection(const QkConnection::Descriptor &desc)
@@ -156,7 +155,6 @@ void QkConnectionManager::removeConnection(const QkConnection::Descriptor &desc)
         conn->close();
         emit connectionRemoved(conn);
         m_connections.removeOne(conn);
-//        delete conn;
     }
 }
 

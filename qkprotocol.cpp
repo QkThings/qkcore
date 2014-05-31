@@ -63,7 +63,7 @@ void QkProtocolWorker::run()
             QkPacket packet = m_outputPacketsQueue.dequeue();
             m_mutex.unlock();
 
-            qDebug() << "sendPacket dequeue";
+//            qDebug() << "sendPacket dequeue";
 
             frame.data.clear();
             frame.data.append(packet.flags.ctrl & 0xFF);
@@ -89,7 +89,7 @@ void QkProtocolWorker::sendPacket(QkPacket packet)
 {
     QMutexLocker locker(&m_mutex);
 
-    qDebug() << "sendPacket enqueue";
+//    qDebug() << "sendPacket enqueue";
     m_outputPacketsQueue.enqueue(packet);
 
     if(m_outputPacketsQueue.count() > 6)
@@ -197,8 +197,8 @@ QkAck QkProtocolWorker::waitForACK(int packetId, int timeout)
 //    emit outputFrameReady(outputFrame);
 //}
 
-QkProtocol::QkProtocol(QkCore *qk, QObject *parent) :
-    QObject(parent)
+QkProtocol::QkProtocol(QkCore *qk) :
+    QObject(qk)
 {
     m_qk = qk;
 
@@ -254,26 +254,11 @@ QkAck QkProtocol::sendPacket(QkPacket::Descriptor descriptor, bool wait, int tim
 
     do
     {
-        qDebug() << "sendPacket" << packet.codeFriendlyName();
+        qDebug() << "sendPacket" << packet.codeFriendlyName() << QString().sprintf("code=%d id=%d", packet.code, packet.id);
         emit packetReady(packet);
         if(wait)
             ack = waitForACK(packet.id, timeout);
     } while(wait && retries-- && ack.result == QkAck::NACK);
-
-//    QkFrame frame;
-//    frame.data.append(packet.flags.ctrl & 0xFF);
-//    frame.data.append((packet.flags.ctrl >> 8) & 0xFF);
-//    frame.data.append(packet.id);
-//    frame.data.append(packet.code);
-//    frame.data.append(packet.data);
-
-//    do
-//    {
-//        //m_outputFrames.enqueue(frame);
-//        //emit outputFrameReady(&m_outputFrames);
-//        if(wait)
-//            ack = waitForACK(packet.id, timeout);
-//    } while(wait && retries-- && ack.result == QkAck::NACK);
 
     return ack;
 }
@@ -328,7 +313,7 @@ void QkProtocol::processPacket(QkPacket packet)
     QkPacket *p = &packet;
     QkCore *qk = m_qk;
 
-    qDebug() << __FUNCTION__ << "addr =" << p->address << "code =" << p->codeFriendlyName();
+//    qDebug() << __FUNCTION__ << "addr =" << p->address << "code =" << p->codeFriendlyName();
 
     selNode = qk->node(p->address);
     if(selNode == 0)
@@ -837,6 +822,8 @@ QString QkPacket::codeFriendlyName()
 {
     switch((quint8)code)
     {
+    case QK_PACKET_CODE_HELLO:
+        return "HELLO";
     case QK_PACKET_CODE_ACK:
         return "ACK";
     case QK_PACKET_CODE_SEARCH:

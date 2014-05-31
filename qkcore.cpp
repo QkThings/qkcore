@@ -17,13 +17,14 @@
 
 using namespace QkUtils;
 
-QkCore::QkCore(QObject *parent) :
+QkCore::QkCore(QkConnection *conn, QObject *parent) :
     QObject(parent)
 {
     qRegisterMetaType<QkFrame>("QkFrame");
     qRegisterMetaType<QkPacket>("QkPacket");
 
-    m_protocol = new QkProtocol(this, this);
+    m_conn = conn;
+    m_protocol = new QkProtocol(this);
     m_nodes.clear();
     m_running = false;
 }
@@ -45,13 +46,14 @@ QkAck QkCore::hello()
     pd.address = 0;
     pd.code = QK_PACKET_CODE_HELLO;
 
-    const int timeout = 500;
-    const int retries = 4;
+    const int timeout = 150;
+    const int retries = 20;
     return m_protocol->sendPacket(pd, true, timeout, retries);
 }
 
 QkAck QkCore::search()
 {
+    emit status(sSearching);
     qDebug() << __FUNCTION__;
     //TODO clear all nodes
     QkPacket::Descriptor pd;
@@ -75,8 +77,10 @@ QkAck QkCore::start(int address)
     pd.address = address;
     pd.code = QK_PACKET_CODE_START;
     QkAck ack = m_protocol->sendPacket(pd);
-    if(ack.result == QkAck::OK)
+    if(ack.result == QkAck::OK) {
         m_running = true;
+        emit status(sStarted);
+    }
     return ack;
 }
 
@@ -88,7 +92,10 @@ QkAck QkCore::stop(int address)
     pd.code = QK_PACKET_CODE_STOP;
     QkAck ack = m_protocol->sendPacket(pd);
     if(ack.result == QkAck::OK)
+    {
         m_running = false;
+        emit status(sStopped);
+    }
     return ack;
 }
 

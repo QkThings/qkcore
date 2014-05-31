@@ -210,7 +210,7 @@ public slots:
     void parseFrame(QkFrame frame);
 
 private:
-    QkAck waitForACK(int packetId, int timeout = 2000);
+    QkAck waitForACK(int packetId, int timeout = 500);
     void processPacket(QkPacket packet);
     QkPacketQueue m_outputPacketsQueue;
     QList<QkAck> m_acks;
@@ -224,10 +224,12 @@ class QkProtocol : public QObject
 {
     Q_OBJECT
 public:
-    QkProtocol(QkCore *qk, QObject *parent = 0);
+    QkProtocol(QkCore *qk);
 //    QkAck ack() { return m_ack; }
     //QkFrameQueue *outputFramesQueue() { return &m_outputFramesQueue; }
     //QReadWriteLock* outputFramesLock() { return &m_outputFramesLock; }
+
+    QkCore *qk() { return m_qk; }
 
     QkAck sendPacket(QkPacket::Descriptor descriptor,
                      bool wait = true,
@@ -259,7 +261,7 @@ public slots:
 
 private:
     void setupSignals();
-    QkAck waitForACK(int packetId, int timeout = 2000);
+    QkAck waitForACK(int packetId, int timeout = 500);
     //QkAck waitForACK(int timeout = 2000);
 
     QkCore *m_qk;
