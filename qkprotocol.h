@@ -249,6 +249,7 @@ class QkProtocol : public QObject
     Q_OBJECT
 public:
     QkProtocol(QkCore *qk);
+    ~QkProtocol();
 //    QkAck ack() { return m_ack; }
     //QkFrameQueue *outputFramesQueue() { return &m_outputFramesQueue; }
     //QReadWriteLock* outputFramesLock() { return &m_outputFramesLock; }

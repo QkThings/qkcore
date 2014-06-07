@@ -44,6 +44,7 @@ QkConnection::QkConnection(QObject *parent) :
 QkConnection::~QkConnection()
 {
     close();
+    delete m_qk;
 }
 
 bool QkConnection::isConnected()
@@ -66,7 +67,10 @@ void QkConnection::close()
         m_worker->quit();
         m_workerThread->quit();
         m_workerThread->wait();
+        qDebug() << "closed!";
     }
+    else
+        qDebug() << "connWorker not found";
 }
 
 bool QkConnection::Descriptor::operator==(Descriptor &other)

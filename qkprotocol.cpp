@@ -189,21 +189,6 @@ QkAck QkProtocolWorker::waitForACK(int packetId, int timeout)
     return ack;
 }
 
-//void QkProtocolWorker::slotOutputFrameReady(QkFrameQueue *queue)
-//{
-//    while(true)
-//    {
-//        QkFrame outputFrame;
-//        m_protocol->outputFramesLock()->lockForRead();
-//        if(!queue->isEmpty())
-//             outputFrame = queue>dequeue();
-//        else
-//        {
-//    m_protocol->outputFramesLock()->unlock();
-//    }
-//    emit outputFrameReady(outputFrame);
-//}
-
 QkProtocol::QkProtocol(QkCore *qk) :
     QObject(qk)
 {
@@ -225,7 +210,12 @@ QkProtocol::QkProtocol(QkCore *qk) :
     m_workerThread->start();
 }
 
-
+QkProtocol::~QkProtocol()
+{
+    m_protocolWorker->quit();
+    m_workerThread->wait();
+    delete m_protocolWorker;
+}
 
 //void QkProtocol::processFrame(const QkFrame &frame)
 //{

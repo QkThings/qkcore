@@ -29,6 +29,11 @@ QkCore::QkCore(QkConnection *conn, QObject *parent) :
     m_running = false;
 }
 
+QkCore::~QkCore()
+{
+    delete m_protocol;
+}
+
 QkNode* QkCore::node(int address)
 {
     return m_nodes.value(address);
@@ -53,8 +58,8 @@ QkAck QkCore::hello()
 
 QkAck QkCore::search()
 {
-    emit status(sSearching);
     qDebug() << __FUNCTION__;
+    emit status(sSearching);
     //TODO clear all nodes
     QkPacket::Descriptor pd;
     pd.address = 0;

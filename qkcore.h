@@ -37,6 +37,7 @@ public:
     };
 
     QkCore(QkConnection *conn, QObject *parent = 0);
+    ~QkCore();
 
     static QString errorMessage(int errCode);
 
