@@ -103,7 +103,7 @@ void QkBoard::setConfigValue(int idx, QVariant value)
     m_configs[idx].setValue(value);
 }
 
-QkAck QkBoard::update()
+int QkBoard::update()
 {
     int i;
     QkAck ack;
@@ -119,7 +119,7 @@ QkAck QkBoard::update()
     if(ack.result != QkAck::OK)
     {
         qDebug() << "failed to set name" << ack.result;
-        return ack;
+        return ack.toInt();
     }
 
     pd.code = QK_PACKET_CODE_SETCONFIG;
@@ -128,22 +128,22 @@ QkAck QkBoard::update()
         pd.setconfig_idx = i;
         ack = m_qk->protocol()->sendPacket(pd);
         if(ack.result != QkAck::OK)
-            return ack;
+            return ack.toInt();
     }
 
     pd.code = QK_PACKET_CODE_SETSAMP;
     ack = m_qk->protocol()->sendPacket(pd);
     if(ack.result != QkAck::OK)
-        return ack;
+        return ack.toInt();
 
-    return ack;
+    return ack.toInt();
 }
 
-QkAck QkBoard::save()
+int QkBoard::save()
 {
     QkPacket::Descriptor pd;
     pd.boardType = m_type;
     pd.address = address();
     pd.code = QK_PACKET_CODE_SAVE;
-    return m_qk->protocol()->sendPacket(pd, false);
+    return m_qk->protocol()->sendPacket(pd, false).toInt();
 }

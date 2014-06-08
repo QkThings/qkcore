@@ -99,6 +99,8 @@ typedef enum qk_error
 #define SIZE_ADDR16         2
 #define SIZE_ADDR64         8
 
+#include "qkdevice.h"
+
 class QkCore;
 class QkBoard;
 class QkProtocol;
@@ -270,8 +272,8 @@ signals:
     void commUpdated(int address);
     void deviceFound(int address);
     void deviceUpdated(int address);
-    void dataReceived(int address);
-    void eventReceived(int address);
+    void dataReceived(int address, QkDevice::DataArray data);
+    void eventReceived(int address, QkDevice::Event event);
     void debugReceived(int address, QString str);
     void packetReady(QkPacket);
     void packetProcessed();

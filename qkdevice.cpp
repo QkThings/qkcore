@@ -7,13 +7,14 @@
 QkDevice::QkDevice(QkCore *qk, QkNode *parentNode) :
     QkBoard(qk)
 {
+    qRegisterMetaType<QkDevice::DataArray>();
+    qRegisterMetaType<QkDevice::Event>();
+
     m_parentNode = parentNode;
     m_type = btDevice;
     m_events.clear();
     m_data.clear();
     m_actions.clear();
-
-    qRegisterMetaType<QkDevice::Event>();
 }
 
 QString QkDevice::samplingModeString(SamplingMode mode)
@@ -48,7 +49,7 @@ void QkDevice::setSamplingMode(QkDevice::SamplingMode mode)
     m_samplingInfo.mode = mode;
 }
 
-QkAck QkDevice::update()
+int QkDevice::update()
 {
     return QkBoard::update();
 }
@@ -83,7 +84,14 @@ void QkDevice::_setDataLabel(int idx, const QString &label)
     m_data[idx]._setLabel(label);
 }
 
-void QkDevice::_setActions(QVector<Action> actions)
+void QkDevice::_logData(const DataArray &data)
+{
+    m_dataLog.append(data);
+    while(m_dataLog.count() > _dataLogMax)
+        m_dataLog.removeFirst();
+}
+
+void QkDevice::_setActions(ActionArray actions)
 {
     m_actions = actions;
 }
@@ -95,14 +103,14 @@ void QkDevice::_setEvents(QVector<Event> events)
 
 void QkDevice::_logEvent(const QkDevice::Event &event)
 {
-    m_eventsFired.append(event);
-    while(m_eventsFired.count() > _maxEventsLogged)
-        m_eventsFired.removeFirst();
+    m_eventLog.append(event);
+    while(m_eventLog.count() > _eventLogMax)
+        m_eventLog.removeFirst();
 }
 
-QQueue<QkDevice::Event> *QkDevice::eventsFired()
+QQueue<QkDevice::Event> QkDevice::eventLog()
 {
-    return &m_eventsFired;
+    return m_eventLog;
 }
 
 QkDevice::SamplingInfo QkDevice::samplingInfo()
@@ -120,7 +128,7 @@ QVector<QkDevice::Data> QkDevice::data()
     return m_data;
 }
 
-QVector<QkDevice::Action> QkDevice::actions()
+QkDevice::ActionArray QkDevice::actions()
 {
     return m_actions;
 }

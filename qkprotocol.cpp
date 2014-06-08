@@ -361,39 +361,43 @@ void QkProtocol::processPacket(QkPacket packet)
     float dataValue;
     QString debugStr;
     QkInfo qkInfo;
-    QVector<QkBoard::Config> configs;
+
+    QkBoard::ConfigArray configs;
     QkBoard::Config::Type configType;
-    QVector<QkDevice::Data> data;
+
+    QkDevice::SamplingInfo sampInfo;
+    QkDevice::DataArray data;
     QkDevice::Data::Type dataType;
-    QVector<QkDevice::Event> events;
-    QkDevice::Event firedEvent;
-    QVector<QkDevice::Action> actions;
+    QkDevice::EventArray events;
+    QkDevice::Event eventRx;
+    QkDevice::ActionArray actions;
+
     QString label, name;
     QVariant varValue;
     QStringList items;
     QDateTime dateTime;
-    QkDevice::SamplingInfo sampInfo;
+
     QList<float> eventArgs;
     float eventArg;
     bool bufferJustCreated = false;
     bool infoChangedEmit = false;
     int infoChangedMask = 0;
-    QkAck receivedAck;
+    QkAck ackRx;
 
     int i_data = 0;
     switch(p->code)
     {
     case QK_PACKET_CODE_ACK:
-        receivedAck.id = getValue(1, &i_data, p->data);
-        receivedAck.code = getValue(1, &i_data, p->data);
-        receivedAck.result = getValue(1, &i_data, p->data);
-        if(receivedAck.result == QkAck::ERROR)
+        ackRx.id = getValue(1, &i_data, p->data);
+        ackRx.code = getValue(1, &i_data, p->data);
+        ackRx.result = getValue(1, &i_data, p->data);
+        if(ackRx.result == QkAck::ERROR)
         {
-            receivedAck.err = getValue(1, &i_data, p->data);
-            receivedAck.arg = getValue(1, &i_data, p->data);
+            ackRx.err = getValue(1, &i_data, p->data);
+            ackRx.arg = getValue(1, &i_data, p->data);
         }
-        m_acks.prepend(receivedAck);
-        qDebug() << "ACK" << "id" << receivedAck.id << "code" << receivedAck.code << "result" << receivedAck.result;
+        m_acks.prepend(ackRx);
+        qDebug() << "ACK" << "id" << ackRx.id << "code" << ackRx.code << "result" << ackRx.result;
         break;
     case QK_PACKET_CODE_INFOQK:
         qkInfo.version = Version(getValue(1, &i_data, p->data),
@@ -544,6 +548,7 @@ void QkProtocol::processPacket(QkPacket packet)
             if(bufferJustCreated)
                 selDevice->_setDataLabel(i, QString().sprintf("D%d",i));
         }
+        selDevice->_logData(selDevice->data());
         break;
     case QK_PACKET_CODE_EVENT:
         eventID = getValue(1, &i_data, p->data);
@@ -558,7 +563,7 @@ void QkProtocol::processPacket(QkPacket packet)
             infoChangedEmit = true;
             infoChangedMask |= (int)QkDevice::diEvent;
         }
-        firedEvent._setLabel(selDevice->events()[eventID].label());
+        eventRx._setLabel(selDevice->events()[eventID].label());
         nargs = getValue(1, &i_data, p->data);
         eventArgs.clear();
         for(i=0; i<nargs; i++)
@@ -566,11 +571,11 @@ void QkProtocol::processPacket(QkPacket packet)
             eventArg = floatFromBytes(getValue(4, &i_data, p->data, true));
             eventArgs.append(eventArg);
         }
-        firedEvent._setArgs(eventArgs);
-        firedEvent._setMessage(getString(&i_data, p->data));
+        eventRx._setArgs(eventArgs);
+        eventRx._setMessage(getString(&i_data, p->data));
 //        if(!m_eventLogging)
 //            selDevice->eventsFired()->clear();
-        selDevice->_logEvent(firedEvent);
+        selDevice->_logEvent(eventRx);
         break;
     case QK_PACKET_CODE_STRING:
         debugStr = getString(&i_data, p->data);
@@ -615,8 +620,8 @@ void QkProtocol::processPacket(QkPacket packet)
     switch(p->code)
     {
     case QK_PACKET_CODE_ACK:
-        emit ack(receivedAck);
-        if(receivedAck.code == QK_PACKET_CODE_SEARCH)
+        emit ack(ackRx);
+        if(ackRx.code == QK_PACKET_CODE_SEARCH)
         {
             switch(p->source())
             {
@@ -624,24 +629,24 @@ void QkProtocol::processPacket(QkPacket packet)
             case QkBoard::btDevice: emit deviceFound(selNode->address()); break;
             }
         }
-        else if((receivedAck.code == QK_PACKET_CODE_GETNODE && p->source() == QkBoard::btComm) ||
-                receivedAck.code == QK_PACKET_CODE_GETMODULE)
+        else if((ackRx.code == QK_PACKET_CODE_GETNODE && p->source() == QkBoard::btComm) ||
+                ackRx.code == QK_PACKET_CODE_GETMODULE)
         {
             emit commUpdated(selNode->address());
         }
-        else if((receivedAck.code == QK_PACKET_CODE_GETNODE && p->source() == QkBoard::btDevice) ||
-                receivedAck.code == QK_PACKET_CODE_GETDEVICE)
+        else if((ackRx.code == QK_PACKET_CODE_GETNODE && p->source() == QkBoard::btDevice) ||
+                ackRx.code == QK_PACKET_CODE_GETDEVICE)
         {
             emit deviceUpdated(selNode->address());
         }
 
         break;
     case QK_PACKET_CODE_DATA:
-        emit dataReceived(selNode->address());
+        emit dataReceived(selNode->address(), selDevice->data());
         break;
     case QK_PACKET_CODE_EVENT:
         //emit eventReceived(selNode->address(), firedEvent);
-        emit eventReceived(selNode->address());
+        emit eventReceived(selNode->address(), eventRx);
         break;
     case QK_PACKET_CODE_STRING:
         emit debugReceived(selNode->address(), debugStr);

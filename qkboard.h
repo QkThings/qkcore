@@ -3,7 +3,7 @@
 
 #include "qkcore_lib.h"
 #include "qkcore_constants.h"
-#include "qkprotocol.h"
+//#include "qkprotocol.h"
 #include "qkutils.h"
 #include <QObject>
 #include <QVariant>
@@ -71,6 +71,8 @@ public:
         double m_min, m_max;
     };
 
+    typedef QVector<Config> ConfigArray;
+
     QkBoard(QkCore *qk);
 
     void _setInfoMask(int mask, bool overwrite = false);
@@ -81,14 +83,14 @@ public:
     void _setConfigs(QVector<Config> configs);
     void setConfigValue(int idx, QVariant value);
 
-    QkAck save();
-    QkAck update();
+    int save();
+    int update();
 
     int address();
     QString name();
     int firmwareVersion();
     QkInfo qkInfo();
-    QVector<Config> configs();
+    ConfigArray configs();
 
 protected:
     Type m_type;

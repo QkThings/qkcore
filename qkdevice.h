@@ -106,32 +106,40 @@ public:
         QVariant m_value;
     };
 
+    typedef QVector<Data> DataArray;
+    typedef QQueue<DataArray> DataLog;
+    typedef QVector<Event> EventArray;
+    typedef QQueue<Event> EventLog;
+    typedef QVector<Action> ActionArray;
+
     QkDevice(QkCore *qk, QkNode *parentNode);
 
     static QString samplingModeString(SamplingMode mode);
     static QString triggerClockString(TriggerClock clock);
 
-    QkAck update();
+    int update();
 
     void setSamplingInfo(const SamplingInfo &info);
     void setSamplingFrequency(int freq);
-    void setSamplingMode(QkDevice::SamplingMode mode);
+    void setSamplingMode(SamplingMode mode);
     void _setSamplingInfo(SamplingInfo info);
-    void _setData(QVector<Data> data);
+    void _setData(DataArray data);
     void _setDataType(Data::Type type);
     void _setDataValue(int idx, float value, quint64 timestamp = 0);
     void _setDataLabel(int idx, const QString &label);
-    void _setActions(QVector<Action> actions);
-    void _setEvents(QVector<Event> events);
-    void _logEvent(const QkDevice::Event &event);
+    void _logData(const DataArray &data);
+    void _setActions(ActionArray actions);
+    void _setEvents(EventArray events);
+    void _logEvent(const Event &event);
 
-    QQueue<QkDevice::Event>* eventsFired();
+    QQueue<QkDevice::Data> dataLog();
+    QQueue<QkDevice::Event> eventLog();
 
     SamplingInfo samplingInfo();
     Data::Type dataType();
-    QVector<Data> data();
-    QVector<Action> actions();
-    QVector<Event> events();
+    DataArray data();
+    ActionArray actions();
+    EventArray events();
 
     int actuate(int id, QVariant value);
 
@@ -139,20 +147,23 @@ protected:
     void setup();
 
 private:
-    enum {
-        _maxEventsLogged = 100
+    enum
+    {
+        _dataLogMax = 128,
+        _eventLogMax = 128
     };
     SamplingInfo m_samplingInfo;
-    QVector<Data> m_data;
-    QVector<Action> m_actions;
-    QVector<Event> m_events;
+    DataArray m_data;
+    ActionArray m_actions;
+    EventArray m_events;
     Data::Type m_dataType;
 
-    //TODO queue for data
-    QQueue<QkDevice::Event> m_eventsFired;
+    DataLog m_dataLog;
+    EventLog m_eventLog;
 
 };
 
-Q_DECLARE_METATYPE(QkDevice::Event) //TODO remove this
+Q_DECLARE_METATYPE(QkDevice::DataArray)
+Q_DECLARE_METATYPE(QkDevice::Event)
 
 #endif // QKDEVICE_H
