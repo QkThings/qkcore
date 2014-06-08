@@ -30,7 +30,9 @@ class QKLIBSHARED_EXPORT QkCore : public QObject
     Q_OBJECT
     friend class QkProtocol;
 public:
-    enum Status {
+    enum Status
+    {
+        sHello,
         sSearching,
         sStarted,
         sStopped

@@ -47,6 +47,7 @@ QMap<int, QkNode*> QkCore::nodes()
 QkAck QkCore::hello()
 {
     qDebug() << __FUNCTION__;
+    emit status(sHello);
     QkPacket::Descriptor pd;
     pd.address = 0;
     pd.code = QK_PACKET_CODE_HELLO;
@@ -64,7 +65,7 @@ QkAck QkCore::search()
     QkPacket::Descriptor pd;
     pd.address = 0;
     pd.code = QK_PACKET_CODE_SEARCH;
-    return m_protocol->sendPacket(pd);
+    return m_protocol->sendPacket(pd, false);
 }
 
 QkAck QkCore::getNode(int address)

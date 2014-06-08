@@ -38,7 +38,11 @@ QkConnection::QkConnection(QObject *parent) :
     QObject(parent)
 {
     m_qk = new QkCore(this);
-    m_id = QkConnection::nextId++;    
+    m_id = QkConnection::nextId++;
+    m_searchOnConnect = false;
+
+    connect(this, SIGNAL(connected(int)), this, SLOT(slotConnected()));
+    connect(this, SIGNAL(disconnected(int)), this, SLOT(slotDisconnected()));
 }
 
 QkConnection::~QkConnection()
@@ -56,6 +60,7 @@ bool QkConnection::isConnected()
 
 void QkConnection::open()
 {
+    emit status(m_id, sConnecting);
     if(m_workerThread != 0)
         m_workerThread->start();
 }
@@ -71,6 +76,22 @@ void QkConnection::close()
     }
     else
         qDebug() << "connWorker not found";
+}
+
+void QkConnection::slotConnected()
+{
+    emit status(m_id, sConnected);
+    if(m_searchOnConnect)
+    {
+        QkAck ack = qk()->hello();
+        if(ack.result != QkAck::NACK)
+            qk()->search();
+    }
+}
+
+void QkConnection::slotDisconnected()
+{
+    emit status(m_id, sDisconnected);
 }
 
 bool QkConnection::Descriptor::operator==(Descriptor &other)
@@ -90,7 +111,7 @@ bool QkConnection::operator==(QkConnection &other)
 QkConnectionManager::QkConnectionManager(QObject *parent) :
     QObject(parent)
 {
-    m_searchOnConnect = true;
+    m_searchOnConnect = false;
 }
 
 QkConnectionManager::~QkConnectionManager()
@@ -108,17 +129,17 @@ QkConnection* QkConnectionManager::defaultConnection()
     return (m_connections.count() > 0 ? m_connections[0] : 0);
 }
 
-void QkConnectionManager::slotConnected(int id)
-{
-    QkConnection *conn = connection(id);
+//void QkConnectionManager::slotConnected(int id)
+//{
+//    QkConnection *conn = connection(id);
 
-    if(m_searchOnConnect)
-    {
-        QkAck ack = conn->qk()->hello();
-        if(ack.result != QkAck::NACK)
-            conn->qk()->search();
-    }
-}
+//    if(m_searchOnConnect)
+//    {
+//        QkAck ack = conn->qk()->hello();
+//        if(ack.result != QkAck::NACK)
+//            conn->qk()->search();
+//    }
+//}
 
 QkConnection* QkConnectionManager::addConnection(const QkConnection::Descriptor &desc)
 {
@@ -142,8 +163,11 @@ QkConnection* QkConnectionManager::addConnection(const QkConnection::Descriptor 
         return 0;
     }
 
+    conn->setSearchOnConnect(m_searchOnConnect);
+
+
     connect(conn, SIGNAL(error(QString)), this, SIGNAL(error(QString)));
-    connect(conn, SIGNAL(connected(int)), this, SLOT(slotConnected(int)));
+//    connect(conn, SIGNAL(connected(int)), this, SLOT(slotConnected(int)));
 
     m_connections.append(conn);
     emit connectionAdded(conn);

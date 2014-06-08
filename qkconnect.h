@@ -64,6 +64,13 @@ public:
         tSerial,
         tTCP
     };
+    enum Status
+    {
+        sConnecting,
+        sConnected,
+        sDisconnected
+    };
+
     class Descriptor
     {
     public:
@@ -82,18 +89,26 @@ public:
     int id() { return m_id; }
     QkConnWorker* worker() { return m_worker; }
     bool isConnected();
+
+    void setSearchOnConnect(bool enabled) { m_searchOnConnect = enabled; }
+
     bool operator==(QkConnection &other);
 
     virtual bool sameAs(const Descriptor &desc) = 0;
 
 signals:
     void error(QString message);
+    void status(int, QkConnection::Status);
     void connected(int);
     void disconnected(int);
 
 public slots:
     void open();
     void close();
+
+private slots:
+    void slotConnected();
+    void slotDisconnected();
 
 protected:
     Descriptor m_descriptor;
@@ -105,7 +120,7 @@ protected:
 private:
     static int nextId;
     int m_id;
-//    bool m_connected;
+    bool m_searchOnConnect;
 };
 
 class QkConnectionManager : public QObject
@@ -134,7 +149,7 @@ public slots:
     void removeConnection(const QkConnection::Descriptor &desc);
 
 private slots:
-    void slotConnected(int id);
+//    void slotConnected(int id);
 
 private:
     QList<QkConnection*> m_connections;
