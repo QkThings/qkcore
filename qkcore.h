@@ -32,7 +32,8 @@ class QKLIBSHARED_EXPORT QkCore : public QObject
 public:
     enum Status
     {
-        sHello,
+        sWaitForReady,
+        sReady,
         sSearching,
         sStarted,
         sStopped
@@ -43,24 +44,33 @@ public:
 
     static QString errorMessage(int errCode);
 
+    void reset();
+    bool isReady();
+    bool isRunning();
+
+    bool waitForReady(int timeout = 5000);
+
     QkNode* node(int address = 0);
     QkNodeMap nodes();
     QkConnection *connection() { return m_conn; }
     QkProtocol* protocol() { return m_protocol; }
-    bool isRunning();
+
 
 signals:
     void status(QkCore::Status);
 
 public slots:
-    QkAck hello();
-    QkAck search();
-    QkAck getNode(int address = 0);
-    QkAck start(int address = 0);
-    QkAck stop(int address = 0);
-
+    int hello();
+    int search();
+    int getNode(int address = 0);
+    int start(int address = 0);
+    int stop(int address = 0);
 
 private:
+    void slotStatus(QkCore::Status status);
+
+private:
+    bool m_ready;
     bool m_running;
     QMap<int, QkNode*> m_nodes;
     QkProtocol *m_protocol;

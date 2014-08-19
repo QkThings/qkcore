@@ -315,7 +315,7 @@ void QkProtocol::processPacket(QkPacket packet)
     QkPacket *p = &packet;
     QkCore *qk = m_qk;
 
-//    qDebug() << __FUNCTION__ << "addr =" << p->address << "code =" << p->codeFriendlyName();
+    qDebug() << __FUNCTION__ << "addr =" << p->address << "code =" << p->codeFriendlyName();
 
     selNode = qk->node(p->address);
     if(selNode == 0)
@@ -398,6 +398,9 @@ void QkProtocol::processPacket(QkPacket packet)
         }
         m_acks.prepend(ackRx);
         qDebug() << "ACK" << "id" << ackRx.id << "code" << ackRx.code << "result" << ackRx.result;
+        break;
+    case QK_PACKET_CODE_READY:
+        qk->m_ready = true;
         break;
     case QK_PACKET_CODE_INFOQK:
         qkInfo.version = Version(getValue(1, &i_data, p->data),

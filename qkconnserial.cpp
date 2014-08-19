@@ -36,7 +36,14 @@ void QkConnSerialWorker::run()
         m_sp->setParity(QSerialPort::NoParity);
         m_sp->setFlowControl(QSerialPort::NoFlowControl);
         m_sp->setDataBits(QSerialPort::Data8);
+
+//        m_sp->setRequestToSend(true);
+//        m_sp->setDataTerminalReady(false);
+
         m_sp->setRequestToSend(false);
+        m_sp->setDataTerminalReady(false);
+
+
         m_sp->clear();
         qDebug() << "connection opened:" << m_sp->portName() << m_sp->baudRate();
     }
@@ -59,8 +66,6 @@ void QkConnSerialWorker::run()
             const QByteArray &frame = m_outputFramesQueue.dequeue().data;
             m_mutex.unlock();
 
-//            qDebug() << "sendFrame dequeue";
-
             int i;
             quint8 chBuf;
 
@@ -81,8 +86,6 @@ void QkConnSerialWorker::run()
             m_mutex.unlock();
     }
 
-    qDebug() << "close connection";
-
     m_sp->close();
     m_connected = false;
 
@@ -97,9 +100,12 @@ void QkConnSerialWorker::slotReadyRead()
     QByteArray data = m_sp->readAll();
     char *bufPtr = data.data();
     int countBytes = data.count();
+//    QString dbgStr;
 
     while(countBytes--)
     {
+//        qDebug() << "rx:" << QString().sprintf("%02X (%c)", *bufPtr & 0xFF, *bufPtr & 0xFF);
+//        dbgStr.append( QString().sprintf("%c", *bufPtr & 0xFF) );
         parseSerialData((quint8)*bufPtr++);
         if(FLAG(m_protocol->ctrlFlags, Protocol::cfFrameReady))
         {
@@ -110,6 +116,8 @@ void QkConnSerialWorker::slotReadyRead()
             FLAG_CLR(m_protocol->ctrlFlags, Protocol::cfFrameReady);
         }
     }
+//    dbgStr.append( "\n");
+//    qDebug() << dbgStr;
 }
 
 void QkConnSerialWorker::parseSerialData(quint8 data)
@@ -165,8 +173,6 @@ QkConnSerial::QkConnSerial(QObject *parent)
 QkConnSerial::QkConnSerial(const QString &portName, int baudRate, QObject *parent) :
     QkConnection(parent)
 {
-    qDebug() << "QkConnSerial" << portName << baudRate;
-
     m_descriptor.type = QkConnection::tSerial;
     m_descriptor.parameters["portName"] = portName;
     m_descriptor.parameters["baudRate"] = baudRate;
@@ -175,8 +181,6 @@ QkConnSerial::QkConnSerial(const QString &portName, int baudRate, QObject *paren
     m_worker = new QkConnSerialWorker(this);
 
     m_worker->moveToThread(m_workerThread);
-
-    //TODO try to use queued connections by connecting before moveToThread
 
     connect(m_workerThread, SIGNAL(started()), m_worker, SLOT(run()), Qt::DirectConnection);
     connect(m_worker, SIGNAL(finished()), m_workerThread, SLOT(quit()), Qt::DirectConnection);

@@ -3,6 +3,7 @@
 #include "qkutils.h"
 
 #include "qknode.h"
+#include "qkprotocol.h"
 
 #include <QDebug>
 #include <QElapsedTimer>
@@ -25,13 +26,60 @@ QkCore::QkCore(QkConnection *conn, QObject *parent) :
 
     m_conn = conn;
     m_protocol = new QkProtocol(this);
-    m_nodes.clear();
-    m_running = false;
+    reset();
 }
 
 QkCore::~QkCore()
 {
     delete m_protocol;
+}
+
+void QkCore::reset()
+{
+    QList<QkNode*> nodes = m_nodes.values();
+    qDeleteAll(nodes.begin(), nodes.end());
+    m_nodes.clear();
+    m_running = false;
+    m_ready = false;
+}
+
+
+bool QkCore::isReady()
+{
+    return m_ready;
+}
+
+bool QkCore::isRunning()
+{
+    return m_running;
+}
+
+
+bool QkCore::waitForReady(int timeout)
+{
+    qDebug() << __FUNCTION__;
+
+    emit status(sWaitForReady);
+
+    QEventLoop eventLoop;
+    QTimer timer;
+    QElapsedTimer elapsedTimer;
+
+    connect(&timer, SIGNAL(timeout()), &eventLoop, SLOT(quit()));
+    connect(m_protocol, SIGNAL(packetProcessed()), &eventLoop, SLOT(quit()));
+
+    timer.start(timeout);
+    elapsedTimer.restart();
+
+    while(!m_ready && !elapsedTimer.hasExpired(timeout))
+        eventLoop.exec();
+
+    if(elapsedTimer.hasExpired(timeout))
+        qDebug() << "failed to receive READY";
+    else
+        emit status(sReady);
+
+    return m_ready;
 }
 
 QkNode* QkCore::node(int address)
@@ -44,20 +92,19 @@ QMap<int, QkNode*> QkCore::nodes()
     return m_nodes;
 }
 
-QkAck QkCore::hello()
+int QkCore::hello()
 {
     qDebug() << __FUNCTION__;
-    emit status(sHello);
     QkPacket::Descriptor pd;
     pd.address = 0;
     pd.code = QK_PACKET_CODE_HELLO;
 
     const int timeout = 100;
     const int retries = 20;
-    return m_protocol->sendPacket(pd, true, timeout, retries);
+    return m_protocol->sendPacket(pd, true, timeout, retries).toInt();
 }
 
-QkAck QkCore::search()
+int QkCore::search()
 {
     qDebug() << __FUNCTION__;
     emit status(sSearching);
@@ -65,19 +112,19 @@ QkAck QkCore::search()
     QkPacket::Descriptor pd;
     pd.address = 0;
     pd.code = QK_PACKET_CODE_SEARCH;
-    return m_protocol->sendPacket(pd, false);
+    return m_protocol->sendPacket(pd).toInt();
 }
 
-QkAck QkCore::getNode(int address)
+int QkCore::getNode(int address)
 {
     QkPacket::Descriptor pd;
     pd.address = address;
     pd.code = QK_PACKET_CODE_GETNODE;
     pd.getnode_address = address;
-    return m_protocol->sendPacket(pd);
+    return m_protocol->sendPacket(pd).toInt();
 }
 
-QkAck QkCore::start(int address)
+int QkCore::start(int address)
 {
     QkPacket::Descriptor pd;
     pd.address = address;
@@ -87,11 +134,11 @@ QkAck QkCore::start(int address)
         m_running = true;
         emit status(sStarted);
     }
-    return ack;
+    return ack.toInt();
 }
 
 
-QkAck QkCore::stop(int address)
+int QkCore::stop(int address)
 {
     QkPacket::Descriptor pd;
     pd.address = address;
@@ -102,12 +149,12 @@ QkAck QkCore::stop(int address)
         m_running = false;
         emit status(sStopped);
     }
-    return ack;
+    return ack.toInt();
 }
 
-bool QkCore::isRunning()
+void QkCore::slotStatus(QkCore::Status status)
 {
-    return m_running;
+
 }
 
 QString QkCore::errorMessage(int errCode)

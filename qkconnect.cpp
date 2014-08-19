@@ -61,6 +61,7 @@ bool QkConnection::isConnected()
 void QkConnection::open()
 {
     emit status(m_id, sConnecting);
+    m_qk->reset();
     if(m_workerThread != 0)
         m_workerThread->start();
 }
@@ -83,8 +84,7 @@ void QkConnection::slotConnected()
     emit status(m_id, sConnected);
     if(m_searchOnConnect)
     {
-        QkAck ack = qk()->hello();
-        if(ack.result != QkAck::NACK)
+        if(qk()->waitForReady())
             qk()->search();
     }
 }
