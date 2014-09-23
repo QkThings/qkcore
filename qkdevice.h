@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKDEVICE_H
+#define QKDEVICE_H
+
 #include <QObject>
 #include <QVector>
 #include <QQueue>

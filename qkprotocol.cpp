@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "qkprotocol.h"
 #include "qkcore.h"
 #include "qkboard.h"
@@ -91,13 +92,13 @@ void QkProtocolWorker::run()
 
             QkAck ack;
 
-            do
-            {
+//            do
+//            {
                 emit frameReady(frame);
                 if(packet.tx.waitACK)
                     ack = waitForACK(packet.id, packet.tx.timeout);
-            }
-            while(packet.tx.waitACK && packet.tx.retries-- && ack.result == QkAck::NACK);
+//            }
+//            while(packet.tx.waitACK && packet.tx.retries-- && ack.result == QkAck::NACK);
         }
         else
             m_mutex.unlock();
@@ -268,7 +269,7 @@ QkAck QkProtocol::sendPacket(QkPacket::Descriptor descriptor, bool wait, int tim
 
 //    do
 //    {
-    qDebug() << "sendPacket" << packet.codeFriendlyName() << QString().sprintf("code=%d id=%d", packet.code, packet.id);
+    qDebug() << "sendPacket" << packet.codeFriendlyName() << QString().sprintf("code:%02X id=%d", packet.code, packet.id);
 
     packet.tx.waitACK = wait;
     packet.tx.timeout = timeout;
@@ -332,7 +333,7 @@ void QkProtocol::processPacket(QkPacket packet)
     QkPacket *p = &packet;
     QkCore *qk = m_qk;
 
-    qDebug() << __FUNCTION__ << "addr =" << p->address << "code =" << p->codeFriendlyName();
+    qDebug() << __FUNCTION__ <<  p->codeFriendlyName() << QString().sprintf("addr:%04X code:%02X",p->address,p->code);
 
     selNode = qk->node(p->address);
     if(selNode == 0)
@@ -414,7 +415,7 @@ void QkProtocol::processPacket(QkPacket packet)
             ackRx.arg = getValue(1, &i_data, p->data);
         }
         m_acks.prepend(ackRx);
-        qDebug() << "ACK" << "id" << ackRx.id << "code" << ackRx.code << "result" << ackRx.result;
+        qDebug() << " ACK received:" << QString().sprintf("id:%d code:%02X result:%d", ackRx.id, ackRx.code, ackRx.result);
         break;
     case QK_PACKET_CODE_READY:
         qk->m_ready = true;
@@ -825,7 +826,7 @@ void QkPacket::Builder::parse(const QkFrame &frame, QkPacket *packet)
 
 int QkPacket::requestId()
 {
-    m_nextId = (m_nextId >= 255 ? 0 : m_nextId+1);
+    m_nextId = (m_nextId+1) % 256;
     return m_nextId;
 }
 
@@ -904,6 +905,6 @@ QString QkPacket::codeFriendlyName()
     case QK_PACKET_CODE_TIMEOUT:
         return "TIMEOUT";
     default:
-        return "???";
+        return QString().sprintf("%02X", code);
     }
 }

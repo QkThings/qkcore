@@ -16,11 +16,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#include "qkconnserial.h"
 #include "qkcore.h"
 #include "qkprotocol.h"
 #include "qkconnect.h"
 
 #include <QDebug>
+#include <QTimer>
 #include <QDateTime>
 #include <QEventLoop>
 
@@ -54,11 +57,27 @@ void QkConnSerialWorker::run()
         m_sp->setFlowControl(QSerialPort::NoFlowControl);
         m_sp->setDataBits(QSerialPort::Data8);
 
+        if(portName.contains("USB")) //FIXME remove this mega-hack
+        {
+        m_sp->setDataTerminalReady(false);
+        QEventLoop eventLoop;
+        QTimer timer;
+        timer.setSingleShot(true);
+        connect(&timer, SIGNAL(timeout()), &eventLoop, SLOT(quit()));
+
+        m_sp->setRequestToSend(true);
+        timer.start(100);
+        eventLoop.exec();
+        m_sp->setRequestToSend(false);
+        timer.start(100);
+        eventLoop.exec();
+        }
+
 //        m_sp->setRequestToSend(true);
 //        m_sp->setDataTerminalReady(false);
 
-        m_sp->setRequestToSend(false);
-        m_sp->setDataTerminalReady(false);
+//        m_sp->setRequestToSend(false);
+//        m_sp->setDataTerminalReady(false);
 
 
         m_sp->clear();
@@ -73,6 +92,8 @@ void QkConnSerialWorker::run()
     m_connected = true;
     emit connected(connection()->id());
 
+    QString dbgStr;
+
     while(!m_quit)
     {
         eventLoop.processEvents();
@@ -83,21 +104,27 @@ void QkConnSerialWorker::run()
             const QByteArray &frame = m_outputFramesQueue.dequeue().data;
             m_mutex.unlock();
 
+            dbgStr = "";
+
             int i;
             quint8 chBuf;
 
             const char flagByte = QK_COMM_FLAG;
             const char dleByte = QK_COMM_DLE;
 
-            m_sp->write(&flagByte, 1);
+            m_sp->write(&flagByte, 1); dbgStr += QString().sprintf("%02X ", flagByte);
             for(i = 0; i < frame.count(); i++)
             {
                 chBuf = frame[i] & 0xFF;
                 if(chBuf == QK_COMM_FLAG || chBuf == QK_COMM_DLE)
-                    m_sp->write(&dleByte, 1);
-                m_sp->write((char*) &chBuf, 1);
+                {
+                    m_sp->write(&dleByte, 1); dbgStr += QString().sprintf("%02X ", dleByte);
+                }
+                m_sp->write((char*) &chBuf, 1); dbgStr += QString().sprintf("%02X ", chBuf);
             }
-            m_sp->write(&flagByte, 1);
+            m_sp->write(&flagByte, 1); dbgStr += QString().sprintf("%02X ", flagByte);
+
+            qDebug() << "tx: " << dbgStr;
         }
         else
             m_mutex.unlock();
@@ -114,27 +141,37 @@ void QkConnSerialWorker::run()
 
 void QkConnSerialWorker::slotReadyRead()
 {
-    QByteArray data = m_sp->readAll();
-    char *bufPtr = data.data();
-    int countBytes = data.count();
-//    QString dbgStr;
+    QByteArray data;// = m_sp->readAll();
+    char *bufPtr;// = data.data();
+    int countBytes;// = data.count();
+    QString dbgStr;
 
-    while(countBytes--)
+//    while(countBytes--)
+    while(m_sp->bytesAvailable() > 0)
     {
-//        qDebug() << "rx:" << QString().sprintf("%02X (%c)", *bufPtr & 0xFF, *bufPtr & 0xFF);
-//        dbgStr.append( QString().sprintf("%c", *bufPtr & 0xFF) );
-        parseSerialData((quint8)*bufPtr++);
-        if(FLAG(m_protocol->ctrlFlags, Protocol::cfFrameReady))
+        data = m_sp->readAll();
+        bufPtr = data.data();
+        countBytes = data.count();
+
+        while(countBytes--)
         {
-            QkFrame frame;
-            frame.data = m_protocol->frame;
-            frame.timestamp = QDateTime::currentMSecsSinceEpoch();
-            emit frameReady(frame);
-            FLAG_CLR(m_protocol->ctrlFlags, Protocol::cfFrameReady);
+
+            //        qDebug() << "rx:" << QString().sprintf("%02X (%c)", *bufPtr & 0xFF, *bufPtr & 0xFF);
+            dbgStr.append( QString().sprintf("%02X ", *bufPtr & 0xFF) );
+//            dbgStr.append( QString().sprintf("%c", *bufPtr & 0xFF) );
+            parseSerialData((quint8)*bufPtr++);
+            if(FLAG(m_protocol->ctrlFlags, Protocol::cfFrameReady))
+            {
+                QkFrame frame;
+                frame.data = m_protocol->frame;
+                frame.timestamp = QDateTime::currentMSecsSinceEpoch();
+                emit frameReady(frame);
+                FLAG_CLR(m_protocol->ctrlFlags, Protocol::cfFrameReady);
+            }
         }
     }
-//    dbgStr.append( "\n");
-//    qDebug() << dbgStr;
+    qDebug() << "rx: " << dbgStr;
+//    qDebug("%s", dbgStr.toStdString().c_str());
 }
 
 void QkConnSerialWorker::parseSerialData(quint8 data)

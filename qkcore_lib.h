@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKCORE_LIB_H
+#define QKCORE_LIB_H
+
 #include <QtCore/qglobal.h>
 #include "qkutils.h"
 

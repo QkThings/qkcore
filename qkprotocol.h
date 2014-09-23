@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKPROTOCOL_H
+#define QKPROTOCOL_H
+
 /******************************************************************************/
 typedef enum qk_error
 {
@@ -213,9 +216,9 @@ class QKLIBSHARED_EXPORT QkAck
 {
 public:
     enum Result {
-        NACK,
-        OK,
-        ERROR
+        NACK = 0,
+        OK = 1,
+        ERROR = 255
     };
     QkAck()
     {

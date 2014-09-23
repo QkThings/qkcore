@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKCOMM_H
+#define QKCOMM_H
+
 #include <QObject>
 #include "qkboard.h"
 

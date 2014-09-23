@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qkconnect.h"
 #include "qkcore.h"
 #include "qkconnserial.h"
 
@@ -50,6 +51,15 @@ void QkConnWorker::sendFrame(const QkFrame &frame)
     m_outputFramesQueue.enqueue(frame);
 }
 
+QString QkConnection::typeToString(Type type)
+{
+    switch(type)
+    {
+    case tSerial: return "Serial";
+    case tTCP: return "TCP/IP";
+    default: return QString::number((int)type);
+    }
+}
 
 QkConnection::QkConnection(QObject *parent) :
     QObject(parent)
@@ -190,6 +200,8 @@ QkConnection* QkConnectionManager::addConnection(const QkConnection::Descriptor 
     emit connectionAdded(conn);
 
     conn->open();
+
+    return conn;
 }
 
 void QkConnectionManager::removeConnection(const QkConnection::Descriptor &desc)

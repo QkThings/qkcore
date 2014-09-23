@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKBOARD_H
+#define QKBOARD_H
+
 #include "qkcore_lib.h"
 #include "qkcore_constants.h"
 //#include "qkprotocol.h"

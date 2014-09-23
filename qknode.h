@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKNODE_H
+#define QKNODE_H
+
 #include "qkcore_lib.h"
 #include <QObject>
 

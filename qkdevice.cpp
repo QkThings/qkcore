@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#include "qkdevice.h"
 #include "qkcore.h"
 
 #include <QDebug>
@@ -172,7 +174,6 @@ int QkDevice::actuate(int id, QVariant value)
     desc.code = QK_PACKET_CODE_ACTUATE;
     desc.action_id = id;
 
-    QkPacket::Builder::build(&packet, desc);
     QkAck ack = m_qk->protocol()->sendPacket(desc);
     if(ack.result != QkAck::OK)
         return -2;

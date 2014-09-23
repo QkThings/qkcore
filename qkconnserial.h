@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKCONNSERIAL_H
+#define QKCONNSERIAL_H
+
 #include "qkconnect.h"
 class QSerialPort;
 class QkConnSerial;

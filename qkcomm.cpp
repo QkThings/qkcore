@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qkcomm.h"
 
 QkComm::QkComm(QkCore *qk, QkNode *parentNode) :
     QkBoard(qk)

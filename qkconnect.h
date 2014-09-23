@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef QKCONNECT_H
+#define QKCONNECT_H
+
 #include <QObject>
 #include <QtSerialPort/QSerialPort>
 #include <QStringList>
@@ -95,6 +98,8 @@ public:
         bool operator==(Descriptor &other);
     };
 
+    static QString typeToString(Type type);
+
     QkConnection(QObject *parent = 0);
     ~QkConnection();
 
@@ -107,7 +112,6 @@ public:
     bool isConnected();
 
     void setSearchOnConnect(bool enabled) { m_searchOnConnect = enabled; }
-
     bool operator==(QkConnection &other);
 
     virtual bool sameAs(const Descriptor &desc) = 0;

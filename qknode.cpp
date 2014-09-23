@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "qknode.h"
 
 QkNode::QkNode(QkCore *qk, int address)
 {
