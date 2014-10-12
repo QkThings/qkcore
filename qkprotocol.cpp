@@ -157,7 +157,7 @@ void QkProtocolWorker::processPacket(QkPacket packet)
         ack.id = getValue(1, &i_data, p->data);
         ack.code = getValue(1, &i_data, p->data);
         ack.result = getValue(1, &i_data, p->data);
-        if(ack.result == QkAck::ERROR)
+        if(ack.result == QkAck::ACK_ERROR)
         {
             ack.err = getValue(1, &i_data, p->data);
             ack.arg = getValue(1, &i_data, p->data);
@@ -181,7 +181,7 @@ QkAck QkProtocolWorker::waitForACK(int packetId, int timeout)
 
     elapsedTimer.start();
 
-    while(ack.result == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
+    while(ack.result == QkAck::ACK_NACK && !elapsedTimer.hasExpired(timeout))
     {
         loopTimer.start(20);
         loop.exec();
@@ -296,7 +296,7 @@ QkAck QkProtocol::waitForACK(int packetId, int timeout)
 
     QkAck ack;
 
-    while(ack.result == QkAck::NACK && !elapsedTimer.hasExpired(timeout))
+    while(ack.result == QkAck::ACK_NACK && !elapsedTimer.hasExpired(timeout))
     {
         loopTimer.start(50);
         loop.exec();
@@ -409,7 +409,7 @@ void QkProtocol::processPacket(QkPacket packet)
         ackRx.id = getValue(1, &i_data, p->data);
         ackRx.code = getValue(1, &i_data, p->data);
         ackRx.result = getValue(1, &i_data, p->data);
-        if(ackRx.result == QkAck::ERROR)
+        if(ackRx.result == QkAck::ACK_ERROR)
         {
             ackRx.err = getValue(1, &i_data, p->data);
             ackRx.arg = getValue(1, &i_data, p->data);

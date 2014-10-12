@@ -26,7 +26,7 @@
 class QkCore;
 class QkNode;
 
-class QkComm : public QkBoard {
+class QKLIBSHARED_EXPORT QkComm : public QkBoard {
     Q_OBJECT
 public:
     QkComm(QkCore *qk, QkNode *parentNode);

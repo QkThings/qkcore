@@ -175,7 +175,7 @@ int QkDevice::actuate(int id, QVariant value)
     desc.action_id = id;
 
     QkAck ack = m_qk->protocol()->sendPacket(desc);
-    if(ack.result != QkAck::OK)
+    if(ack.result != QkAck::ACK_OK)
         return -2;
 
     return 0;

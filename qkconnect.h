@@ -72,7 +72,7 @@ private:
 
 };
 
-class QkConnection : public QObject
+class QKLIBSHARED_EXPORT QkConnection : public QObject
 {
     Q_OBJECT
     Q_ENUMS(Type)
@@ -143,7 +143,7 @@ private:
     bool m_searchOnConnect;
 };
 
-class QkConnectionManager : public QObject
+class QKLIBSHARED_EXPORT QkConnectionManager : public QObject
 {
     Q_OBJECT
 public:
@@ -175,55 +175,5 @@ private:
     QList<QkConnection*> m_connections;
     bool m_searchOnConnect;
 };
-
-//class QkSerialConnection : public QkConnection
-//{
-//    Q_OBJECT
-//public:
-//    enum Parameter
-//    {
-//        pPortName,
-//        pBaudRate,
-//        pCOUNT
-//    };
-//    QkSerialConnection(QString portName = QString(), int baudRate = 38400, QObject *parent = 0);
-
-//public slots:
-//    bool open();
-//    void close();
-//    void setPortName(const QString &portName);
-//    void setBaudRate(int baudRate);
-
-//protected slots:
-//    void slotDataReady();
-//    void slotInputFrameReady();
-
-//protected:
-//    void sendFrame(const QkFrame &frame);
-
-//private:
-//    class Comm
-//    {
-//    public:
-//        QByteArray frame;
-//        volatile bool txdata;
-//        volatile bool rxdata;
-//        volatile bool frameReady;
-//        volatile bool seq;
-//        volatile bool dle;
-//        volatile bool valid;
-//        volatile int count;
-//    };
-//    void parseIncomingData(quint8 data);
-//    void create();
-//    Comm m_comm;
-//    QSerialPort *m_sp;
-//    QString m_portName;
-//    int m_baudRate;
-
-//    QkSerialConnectionWorker *m_worker;
-//};
-
-
 
 #endif // QKCONNECT_H

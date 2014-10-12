@@ -149,7 +149,7 @@ int QkCore::start(int address)
     pd.address = address;
     pd.code = QK_PACKET_CODE_START;
     QkAck ack = m_protocol->sendPacket(pd);
-    if(ack.result == QkAck::OK) {
+    if(ack.result == QkAck::ACK_OK) {
         m_running = true;
         emit status(sStarted);
     }
@@ -163,7 +163,7 @@ int QkCore::stop(int address)
     pd.address = address;
     pd.code = QK_PACKET_CODE_STOP;
     QkAck ack = m_protocol->sendPacket(pd);
-    if(ack.result == QkAck::OK)
+    if(ack.result == QkAck::ACK_OK)
     {
         m_running = false;
         emit status(sStopped);

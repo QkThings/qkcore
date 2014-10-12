@@ -216,13 +216,13 @@ class QKLIBSHARED_EXPORT QkAck
 {
 public:
     enum Result {
-        NACK = 0,
-        OK = 1,
-        ERROR = 255
+        ACK_NACK = 0,
+        ACK_OK = 1,
+        ACK_ERROR = 255
     };
     QkAck()
     {
-        result = NACK;
+        result = ACK_NACK;
     }
 
     static QkAck fromInt(int ack);

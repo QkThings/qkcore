@@ -135,7 +135,7 @@ int QkBoard::update()
     pd.code = QK_PACKET_CODE_SETNAME;
     pd.setname_str = name();
     ack = m_qk->protocol()->sendPacket(pd);
-    if(ack.result != QkAck::OK)
+    if(ack.result != QkAck::ACK_OK)
     {
         qDebug() << "failed to set name" << ack.result;
         return ack.toInt();
@@ -146,13 +146,13 @@ int QkBoard::update()
     {
         pd.setconfig_idx = i;
         ack = m_qk->protocol()->sendPacket(pd);
-        if(ack.result != QkAck::OK)
+        if(ack.result != QkAck::ACK_OK)
             return ack.toInt();
     }
 
     pd.code = QK_PACKET_CODE_SETSAMP;
     ack = m_qk->protocol()->sendPacket(pd);
-    if(ack.result != QkAck::OK)
+    if(ack.result != QkAck::ACK_OK)
         return ack.toInt();
 
     return ack.toInt();

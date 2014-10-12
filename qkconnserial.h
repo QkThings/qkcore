@@ -65,7 +65,7 @@ private:
     Protocol *m_protocol;
 };
 
-class QkConnSerial : public QkConnection
+class QKLIBSHARED_EXPORT QkConnSerial : public QkConnection
 {
     Q_OBJECT
 public:
