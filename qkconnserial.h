@@ -54,6 +54,7 @@ public:
 
     QkConnSerialWorker(QkConnSerial *conn);
     void run();
+    void setBootPol(bool state);
 
 public slots:
     void slotReadyRead();
@@ -63,6 +64,7 @@ private:
 
     QSerialPort *m_sp;
     Protocol *m_protocol;
+    bool m_bootPol;
 };
 
 class QKLIBSHARED_EXPORT QkConnSerial : public QkConnection
@@ -70,9 +72,11 @@ class QKLIBSHARED_EXPORT QkConnSerial : public QkConnection
     Q_OBJECT
 public:
     QkConnSerial(QObject *parent = 0);
-    QkConnSerial(const QString &portName, int baudRate, QObject *parent = 0);
+    QkConnSerial(const QString &portName, int baudRate, bool bootPol = false, QObject *parent = 0);
     void setPortName(const QString &portName);
     void setBaudRate(int baudRate);
+
+    void setBootPol(bool pol);
 
     bool sameAs(const Descriptor &desc);
 
@@ -80,6 +84,9 @@ public:
 signals:
 
 public slots:
+
+private:
+    bool m_bootPol;
 
 };
 

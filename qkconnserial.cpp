@@ -59,7 +59,7 @@ void QkConnSerialWorker::run()
 
         if(portName.contains("USB")) //FIXME remove this mega-hack
         {
-        m_sp->setDataTerminalReady(false);
+        m_sp->setDataTerminalReady(m_bootPol); //FIXME it depends on the hardware!
         QEventLoop eventLoop;
         QTimer timer;
         timer.setSingleShot(true);
@@ -137,6 +137,11 @@ void QkConnSerialWorker::run()
     emit finished();
 
     eventLoop.processEvents();
+}
+
+void QkConnSerialWorker::setBootPol(bool state)
+{
+    m_bootPol = state;
 }
 
 void QkConnSerialWorker::slotReadyRead()
@@ -224,16 +229,19 @@ QkConnSerial::QkConnSerial(QObject *parent)
     QkConnSerial("portName", 38400, parent);
 }
 
-QkConnSerial::QkConnSerial(const QString &portName, int baudRate, QObject *parent) :
+QkConnSerial::QkConnSerial(const QString &portName, int baudRate, bool bootPol, QObject *parent) :
     QkConnection(parent)
 {
     m_descriptor.type = QkConnection::tSerial;
     m_descriptor.parameters["portName"] = portName;
     m_descriptor.parameters["baudRate"] = baudRate;
+    m_descriptor.parameters["bootPol"] = bootPol;
+
+    m_bootPol = bootPol;
 
     m_workerThread = new QThread(this);
     m_worker = new QkConnSerialWorker(this);
-
+    ((QkConnSerialWorker *)m_worker)->setBootPol(m_bootPol);
     m_worker->moveToThread(m_workerThread);
 
     connect(m_workerThread, SIGNAL(started()), m_worker, SLOT(run()), Qt::DirectConnection);
@@ -258,6 +266,11 @@ void QkConnSerial::setPortName(const QString &portName)
 void QkConnSerial::setBaudRate(int baudRate)
 {
     m_descriptor.parameters["baudRate"] = baudRate;
+}
+
+void QkConnSerial::setBootPol(bool pol)
+{
+
 }
 
 bool QkConnSerial::sameAs(const Descriptor &desc)

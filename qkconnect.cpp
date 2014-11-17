@@ -183,7 +183,9 @@ QkConnection* QkConnectionManager::addConnection(const QkConnection::Descriptor 
     case QkConnection::tSerial:
         conn = new QkConnSerial(desc.parameters["portName"].toString(),
                                 desc.parameters["baudRate"].toInt(),
+                                desc.parameters["bootPol"].toBool(),
                                 this);
+
         break;
     default:
         qDebug() << "Connection type unknown" << desc.type;
